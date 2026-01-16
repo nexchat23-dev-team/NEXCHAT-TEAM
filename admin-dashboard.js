@@ -1,5 +1,3 @@
-// ===== ADMIN DASHBOARD - FULL FIREBASE INTEGRATION =====
-
 import { auth, db } from "./firebase-config.js";
 import { 
   collection, doc, getDocs, updateDoc, deleteDoc, query, where,
@@ -9,7 +7,6 @@ import {
   createUserWithEmailAndPassword, signOut, deleteUser as deleteAuthUser
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
-// ===== CHECK AUTHENTICATION =====
 function checkAdminAuth() {
   const adminToken = localStorage.getItem('adminToken');
   const adminEmail = localStorage.getItem('adminEmail');
@@ -36,7 +33,6 @@ if (!checkAdminAuth()) {
   throw new Error('Unauthorized access');
 }
 
-// ===== STATE VARIABLES =====
 let currentAdminName = "Admin";
 let selectedUserId = null;
 let selectedReportId = null;
@@ -45,8 +41,6 @@ let allReports = [];
 let allBlockedUsers = [];
 let allAdmins = [];
 
-
-// ===== UTILITY FUNCTIONS =====
 
 function sanitizeInput(input) {
   const div = document.createElement('div');
@@ -100,7 +94,6 @@ function generateRandomPassword(length = 12) {
   return password;
 }
 
-// ===== INITIALIZE DASHBOARD =====
 window.addEventListener('load', () => {
   if (!checkAdminAuth()) return;
   
@@ -113,7 +106,6 @@ window.addEventListener('load', () => {
   loadUsers();
 });
 
-// ===== SETUP EVENT LISTENERS =====
 function setupEventListeners() {
   // Logout
   const logoutBtn = document.getElementById('logoutBtn');
@@ -221,7 +213,6 @@ function setupEventListeners() {
   });
 }
 
-// ===== TAB NAVIGATION =====
 function setupTabNavigation() {
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -234,6 +225,7 @@ function setupTabNavigation() {
       document.getElementById(tabName).classList.add('active');
       
       if (tabName === 'users') loadUsers();
+      if (tabName === 'gmail') loadGmailUsers();
       if (tabName === 'reports') loadReports();
       if (tabName === 'blocked') loadBlockedUsers();
       if (tabName === 'admins') loadAdmins();
@@ -241,7 +233,6 @@ function setupTabNavigation() {
   });
 }
 
-// ===== LOAD OVERVIEW STATISTICS =====
 async function loadOverviewStats() {
   try {
     // Load users count
@@ -251,6 +242,10 @@ async function loadOverviewStats() {
     // Load messages count
     const messagesSnapshot = await getDocs(collection(db, 'messages'));
     const totalMessages = messagesSnapshot.size;
+    
+    // Load videos count (NEX-REELS)
+    const videosSnapshot = await getDocs(collection(db, 'videos'));
+    const totalVideos = videosSnapshot.size;
     
     // Load reports count
     const reportsSnapshot = await getDocs(query(collection(db, 'reports'), where('status', '==', 'pending')));
@@ -262,6 +257,7 @@ async function loadOverviewStats() {
     
     document.getElementById('totalUsers').textContent = totalUsers;
     document.getElementById('totalMessages').textContent = totalMessages;
+    document.getElementById('totalVideos').textContent = totalVideos;
     document.getElementById('pendingReports').textContent = pendingReports;
     document.getElementById('blockedCount').textContent = blockedCount;
   } catch (error) {
@@ -269,7 +265,6 @@ async function loadOverviewStats() {
   }
 }
 
-// ===== LOAD AND DISPLAY USERS =====
 async function loadUsers() {
   const tbody = document.getElementById('usersTableBody');
   tbody.innerHTML = '<tr class="loading"><td colspan="6">Loading users...</td></tr>';
@@ -314,7 +309,65 @@ async function loadUsers() {
   }
 }
 
-// ===== SHOW USER MODAL =====
+async function loadGmailUsers() {
+  const tbody = document.getElementById('gmailUsersTableBody');
+  tbody.innerHTML = '<tr class="loading"><td colspan="7">Loading Gmail users...</td></tr>';
+  
+  try {
+    const usersSnapshot = await getDocs(query(collection(db, 'users'), where('email', '!=', '')));
+    const gmailUsers = [];
+    
+    usersSnapshot.forEach(doc => {
+      const user = { id: doc.id, ...doc.data() };
+      if (user.email && user.email.includes('@gmail.com')) {
+        gmailUsers.push(user);
+      }
+    });
+    
+    gmailUsers.sort((a, b) => {
+      const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
+      const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
+      return dateB - dateA;
+    });
+    
+    const onlineCount = gmailUsers.filter(u => u.isOnline).length;
+    document.getElementById('totalGmailUsers').textContent = gmailUsers.length;
+    document.getElementById('gmailUsersOnline').textContent = onlineCount;
+    
+    tbody.innerHTML = '';
+    gmailUsers.forEach(user => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>
+          <div class="user-profile">
+            <span style="font-size: 1.5rem;">📧</span>
+            <strong>${sanitizeInput(user.username || user.displayName || 'Unknown')}</strong>
+          </div>
+        </td>
+        <td>${sanitizeInput(user.username || user.displayName || 'N/A')}</td>
+        <td>${sanitizeInput(user.email || 'N/A')}</td>
+        <td><span class="status-badge ${user.isOnline ? 'online' : 'offline'}">${user.isOnline ? 'ONLINE' : 'OFFLINE'}</span></td>
+        <td>${user.lastLogin ? new Date(user.lastLogin.toDate?.() || user.lastLogin).toLocaleString() : 'Never'}</td>
+        <td>${user.createdAt ? new Date(user.createdAt.toDate?.() || user.createdAt).toLocaleDateString() : 'N/A'}</td>
+        <td>
+          <button class="action-btn view-btn" onclick="showUserModal('${user.id}')">👁️ View</button>
+          <button class="action-btn ${user.isBlocked ? 'success-btn' : 'warn-btn'}" onclick="toggleBlockUser('${user.id}')">
+            ${user.isBlocked ? '✅ Unblock' : '🚫 Block'}
+          </button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+    
+    if (gmailUsers.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No Gmail users found</td></tr>';
+    }
+  } catch (error) {
+    console.error('Error loading Gmail users:', error);
+    tbody.innerHTML = `<tr><td colspan="7" style="color: red;">Error loading Gmail users: ${error.message}</td></tr>`;
+  }
+}
+
 async function showUserModal(userId) {
   selectedUserId = userId;
   const user = allUsers.find(u => u.id === userId);
@@ -826,3 +879,482 @@ window.handleReport = handleReport;
 window.deactivateAdmin = deactivateAdmin;
 window.activateAdmin = activateAdmin;
 window.deleteAdmin = deleteAdmin;
+
+// ============================================================
+// NEX-REELS VIDEO MANAGEMENT
+// ============================================================
+
+let allVideos = [];
+let selectedVideoId = null;
+let selectedVideoData = null;
+
+// Load videos for NEX-REELS monitoring
+async function loadVideos() {
+  try {
+    const videosRef = collection(db, 'videos');
+    const q = query(videosRef);
+    const snap = await getDocs(q);
+    
+    allVideos = [];
+    let totalViews = 0;
+    let flaggedCount = 0;
+    
+    snap.forEach(docSnap => {
+      const video = docSnap.data();
+      video.id = docSnap.id;
+      allVideos.push(video);
+      
+      totalViews += video.views || 0;
+      if (video.flagged || video.isFlagged) flaggedCount++;
+    });
+    
+    // Update stats
+    document.getElementById('totalVideos').textContent = allVideos.length;
+    document.getElementById('flaggedVideos').textContent = flaggedCount;
+    document.getElementById('totalViews').textContent = totalViews.toLocaleString();
+    document.getElementById('videoStats').textContent = allVideos.length;
+    
+    displayVideos(allVideos);
+    
+    console.log('✅ Loaded ' + allVideos.length + ' videos');
+  } catch (err) {
+    console.error('❌ Error loading videos:', err);
+    showNotification('Error loading videos: ' + err.message, 'error');
+  }
+}
+
+// Display videos in grid
+function displayVideos(videos) {
+  const container = document.getElementById('videosContainer');
+  
+  if (videos.length === 0) {
+    container.innerHTML = '<p class="empty-message">No videos found</p>';
+    return;
+  }
+  
+  container.innerHTML = videos.map(video => `
+    <div class="video-card" onclick="window.openVideoModal('${video.id}')">
+      <div class="video-thumbnail">
+        ${video.thumbnailUrl ? `<img src="${sanitizeInput(video.thumbnailUrl)}" alt="thumbnail">` : '<div class="placeholder">📹</div>'}
+        <span class="video-duration">${video.duration || 0}s</span>
+        ${video.flagged || video.isFlagged ? '<span class="flag-badge">🚩 FLAGGED</span>' : ''}
+      </div>
+      <div class="video-info">
+        <h4>${sanitizeInput(video.title || 'Untitled')}</h4>
+        <p class="video-author">By: @${sanitizeInput(video.author || 'Unknown')}</p>
+        <div class="video-stats">
+          <span>👁️ ${(video.views || 0).toLocaleString()}</span>
+          <span>❤️ ${(video.likes || 0).toLocaleString()}</span>
+          <span>💬 ${(video.comments || 0).toLocaleString()}</span>
+        </div>
+        <p class="video-date">${new Date(video.createdAt?.toDate?.() || video.createdAt).toLocaleDateString()}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Open video action modal
+async function openVideoModal(videoId) {
+  selectedVideoId = videoId;
+  selectedVideoData = allVideos.find(v => v.id === videoId);
+  
+  if (!selectedVideoData) return;
+  
+  const modal = document.getElementById('videoActionModal');
+  const info = document.getElementById('videoActionInfo');
+  
+  info.innerHTML = `
+    <div class="modal-info">
+      <h4>${sanitizeInput(selectedVideoData.title)}</h4>
+      <p><strong>Creator:</strong> @${sanitizeInput(selectedVideoData.author)}</p>
+      <p><strong>Creator UID:</strong> ${sanitizeInput(selectedVideoData.authorId)}</p>
+      <p><strong>Views:</strong> ${(selectedVideoData.views || 0).toLocaleString()}</p>
+      <p><strong>Likes:</strong> ${(selectedVideoData.likes || 0).toLocaleString()}</p>
+      <p><strong>Comments:</strong> ${(selectedVideoData.comments || 0).toLocaleString()}</p>
+      <p><strong>Uploaded:</strong> ${new Date(selectedVideoData.createdAt?.toDate?.() || selectedVideoData.createdAt).toLocaleString()}</p>
+      <p><strong>Description:</strong> ${sanitizeInput(selectedVideoData.description || 'No description')}</p>
+      ${selectedVideoData.flagged || selectedVideoData.isFlagged ? '<p style="color: #ff6b6b;"><strong>⚠️ Status: FLAGGED</strong></p>' : ''}
+    </div>
+  `;
+  
+  // Update video preview
+  const videoPreview = document.getElementById('videoPreview');
+  const thumbnailPreview = document.getElementById('thumbnailPreview');
+  
+  if (selectedVideoData.videoUrl) {
+    videoPreview.src = selectedVideoData.videoUrl;
+    videoPreview.style.display = 'block';
+    thumbnailPreview.style.display = 'none';
+  } else if (selectedVideoData.thumbnailUrl) {
+    thumbnailPreview.src = selectedVideoData.thumbnailUrl;
+    thumbnailPreview.style.display = 'block';
+    videoPreview.style.display = 'none';
+  }
+  
+  modal.style.display = 'flex';
+}
+
+// Flag video
+async function flagVideo() {
+  if (!selectedVideoId) return;
+  
+  try {
+    await updateDoc(doc(db, 'videos', selectedVideoId), {
+      flagged: true,
+      isFlagged: true,
+      flaggedAt: serverTimestamp(),
+      flaggedBy: 'admin'
+    });
+    
+    showNotification('✅ Video flagged for review', 'success');
+    document.getElementById('videoActionModal').style.display = 'none';
+    loadVideos();
+  } catch (err) {
+    console.error('❌ Error flagging video:', err);
+    showNotification('Error flagging video: ' + err.message, 'error');
+  }
+}
+
+// Delete video
+async function deleteVideo() {
+  if (!selectedVideoId) return;
+  
+  if (!confirm('⚠️ Are you sure you want to permanently delete this video? This cannot be undone.')) return;
+  
+  try {
+    // Delete from Firestore
+    await deleteDoc(doc(db, 'videos', selectedVideoId));
+    
+    showNotification('✅ Video deleted successfully', 'success');
+    document.getElementById('videoActionModal').style.display = 'none';
+    loadVideos();
+  } catch (err) {
+    console.error('❌ Error deleting video:', err);
+    showNotification('Error deleting video: ' + err.message, 'error');
+  }
+}
+
+// Ban video creator
+async function banVideoCreator() {
+  if (!selectedVideoData) return;
+  
+  const creatorId = selectedVideoData.authorId;
+  if (!creatorId) {
+    showNotification('❌ Cannot ban: Creator ID not found', 'error');
+    return;
+  }
+  
+  if (!confirm(`⚠️ Ban user @${selectedVideoData.author}? They will not be able to upload more videos.`)) return;
+  
+  try {
+    // Add to banned users
+    const userRef = doc(db, 'users', creatorId);
+    await updateDoc(userRef, {
+      banned: true,
+      bannedAt: serverTimestamp(),
+      bannedReason: 'Inappropriate video content on NEX-REELS',
+      bannedBy: 'admin'
+    });
+    
+    // Also delete all their other videos
+    const videoRef = collection(db, 'videos');
+    const q = query(videoRef, where('authorId', '==', creatorId));
+    const snap = await getDocs(q);
+    
+    snap.forEach(async (docSnap) => {
+      await deleteDoc(docSnap.ref);
+    });
+    
+    showNotification(`✅ User @${selectedVideoData.author} has been banned`, 'success');
+    document.getElementById('videoActionModal').style.display = 'none';
+    loadVideos();
+  } catch (err) {
+    console.error('❌ Error banning creator:', err);
+    showNotification('Error banning creator: ' + err.message, 'error');
+  }
+}
+
+// Filter videos
+function filterVideos(filterType) {
+  let filtered = [...allVideos];
+  
+  if (filterType === 'trending') {
+    filtered = filtered.sort((a, b) => (b.likes || 0) - (a.likes || 0)).slice(0, 50);
+  } else if (filterType === 'flagged') {
+    filtered = filtered.filter(v => v.flagged || v.isFlagged);
+  } else if (filterType === 'recent') {
+    filtered = filtered.sort((a, b) => {
+      const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
+      const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
+      return dateB - dateA;
+    }).slice(0, 50);
+  }
+  
+  displayVideos(filtered);
+}
+
+// ============================================================
+// VIDEO REPORTS MANAGEMENT
+// ============================================================
+
+let allVideoReports = [];
+let selectedReportId = null;
+let selectedReportData = null;
+
+// Load video reports from Firestore
+async function loadVideoReports() {
+  const container = document.getElementById('reportsContainer');
+  container.innerHTML = '<div class="loading-message">Loading reports...</div>';
+  
+  try {
+    const reportsRef = collection(db, 'reports');
+    const snap = await getDocs(reportsRef);
+    
+    allVideoReports = [];
+    
+    snap.forEach(docSnap => {
+      const report = { id: docSnap.id, ...docSnap.data() };
+      // Only show video reports (not user-to-user reports)
+      if (report.videoId) {
+        allVideoReports.push(report);
+      }
+    });
+    
+    // Sort by creation date (newest first)
+    allVideoReports.sort((a, b) => {
+      const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
+      const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
+      return dateB - dateA;
+    });
+    
+    displayVideoReports(allVideoReports);
+  } catch (err) {
+    console.error('❌ Error loading reports:', err);
+    container.innerHTML = '<p class="empty-state">Error loading reports</p>';
+    showNotification('Error loading reports: ' + err.message, 'error');
+  }
+}
+
+// Display video reports
+function displayVideoReports(reports) {
+  const container = document.getElementById('reportsContainer');
+  container.innerHTML = '';
+  
+  if (reports.length === 0) {
+    container.innerHTML = '<p class="empty-state">No reports yet</p>';
+    return;
+  }
+  
+  reports.forEach(report => {
+    const statusColor = report.status === 'resolved' ? 'success-btn' : 
+                       report.status === 'reviewed' ? 'warn-btn' : 'danger-btn';
+    
+    const card = document.createElement('div');
+    card.className = 'report-card';
+    card.innerHTML = `
+      <div class="report-header">
+        <div>
+          <h4>Video: ${sanitizeInput(report.videoTitle || 'Unknown')}</h4>
+          <p>Creator: <strong>@${sanitizeInput(report.author || 'Unknown')}</strong></p>
+        </div>
+        <span class="report-status ${statusColor}">${(report.status || 'pending').toUpperCase()}</span>
+      </div>
+      <div class="report-content">
+        <p><strong>Reason:</strong> ${sanitizeInput(report.reason || 'N/A')}</p>
+        <p><strong>Description:</strong> ${sanitizeInput(report.description || 'No description')}</p>
+        <p><strong>Reported By:</strong> ${report.isAnonymous ? 'Anonymous' : sanitizeInput(report.reportedByEmail || 'Unknown')}</p>
+        <p><strong>Date:</strong> ${new Date(report.createdAt?.toDate?.() || report.createdAt).toLocaleString()}</p>
+      </div>
+      <div class="action-buttons">
+        <button class="action-btn view-btn" onclick="openVideoReportModal('${report.id}')">👁️ View Details</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+// Open video report details modal
+async function openVideoReportModal(reportId) {
+  selectedReportId = reportId;
+  selectedReportData = allVideoReports.find(r => r.id === reportId);
+  
+  if (!selectedReportData) return;
+  
+  const modal = document.getElementById('reportModal');
+  const details = document.getElementById('reportDetails');
+  
+  details.innerHTML = `
+    <div class="modal-info">
+      <h4>📋 Report Details</h4>
+      <p><strong>Video:</strong> ${sanitizeInput(selectedReportData.videoTitle || 'Unknown')}</p>
+      <p><strong>Creator:</strong> @${sanitizeInput(selectedReportData.author || 'Unknown')}</p>
+      <p><strong>Video ID:</strong> ${sanitizeInput(selectedReportData.videoId)}</p>
+      <p><strong>Creator ID:</strong> ${sanitizeInput(selectedReportData.authorId)}</p>
+      <hr style="margin: 12px 0; border: none; border-top: 1px solid rgba(255,255,255,0.1);">
+      <p><strong>Report Reason:</strong> <span style="color: #ff6b6b;">${sanitizeInput(selectedReportData.reason || 'N/A')}</span></p>
+      <p><strong>Description:</strong> ${sanitizeInput(selectedReportData.description || 'No additional details')}</p>
+      <p><strong>Reported By:</strong> ${selectedReportData.isAnonymous ? '<em>Anonymous</em>' : sanitizeInput(selectedReportData.reportedByEmail || 'Unknown')}</p>
+      <p><strong>Report Date:</strong> ${new Date(selectedReportData.createdAt?.toDate?.() || selectedReportData.createdAt).toLocaleString()}</p>
+      <p><strong>Status:</strong> <span style="color: #1db854;"><strong>${(selectedReportData.status || 'pending').toUpperCase()}</strong></span></p>
+    </div>
+  `;
+  
+  modal.style.display = 'flex';
+}
+
+// Mark report as reviewed
+async function markReportReviewed() {
+  if (!selectedReportId) return;
+  
+  try {
+    await updateDoc(doc(db, 'reports', selectedReportId), {
+      status: 'reviewed'
+    });
+    
+    showNotification('✅ Report marked as reviewed', 'success');
+    document.getElementById('reportModal').style.display = 'none';
+    loadVideoReports();
+  } catch (err) {
+    console.error('❌ Error updating report:', err);
+    showNotification('Error updating report: ' + err.message, 'error');
+  }
+}
+
+// Delete reported video
+async function deleteReportedVideo() {
+  if (!selectedReportData) return;
+  
+  if (!confirm('⚠️ Are you sure you want to permanently delete this video?')) return;
+  
+  try {
+    await deleteDoc(doc(db, 'videos', selectedReportData.videoId));
+    
+    await updateDoc(doc(db, 'reports', selectedReportId), {
+      status: 'resolved',
+      resolvedAt: serverTimestamp(),
+      actionTaken: 'video_deleted'
+    });
+    
+    showNotification('✅ Video deleted and report resolved', 'success');
+    document.getElementById('reportModal').style.display = 'none';
+    loadVideoReports();
+  } catch (err) {
+    console.error('❌ Error deleting video:', err);
+    showNotification('Error deleting video: ' + err.message, 'error');
+  }
+}
+
+// Ban creator from report
+async function banCreatorFromReport() {
+  if (!selectedReportData) return;
+  
+  const creatorId = selectedReportData.authorId;
+  if (!creatorId) {
+    showNotification('❌ Cannot ban: Creator ID not found', 'error');
+    return;
+  }
+  
+  if (!confirm(`⚠️ Ban user @${selectedReportData.author}? All their videos will be deleted.`)) return;
+  
+  try {
+    // Ban the user
+    await updateDoc(doc(db, 'users', creatorId), {
+      banned: true,
+      bannedAt: serverTimestamp(),
+      bannedReason: 'Violation: ' + selectedReportData.reason
+    });
+    
+    // Delete all their videos
+    const videosRef = collection(db, 'videos');
+    const q = query(videosRef, where('authorId', '==', creatorId));
+    const snap = await getDocs(q);
+    
+    snap.forEach(async (docSnap) => {
+      await deleteDoc(docSnap.ref);
+    });
+    
+    // Mark report as resolved
+    await updateDoc(doc(db, 'reports', selectedReportId), {
+      status: 'resolved',
+      resolvedAt: serverTimestamp(),
+      actionTaken: 'creator_banned'
+    });
+    
+    showNotification(`✅ User @${selectedReportData.author} has been banned`, 'success');
+    document.getElementById('reportModal').style.display = 'none';
+    loadVideoReports();
+  } catch (err) {
+    console.error('❌ Error banning creator:', err);
+    showNotification('Error banning creator: ' + err.message, 'error');
+  }
+}
+
+// Dismiss report (mark as resolved but no action taken)
+async function dismissReport() {
+  if (!selectedReportId) return;
+  
+  try {
+    await updateDoc(doc(db, 'reports', selectedReportId), {
+      status: 'resolved',
+      resolvedAt: serverTimestamp(),
+      actionTaken: 'dismissed'
+    });
+    
+    showNotification('✅ Report dismissed', 'success');
+    document.getElementById('reportModal').style.display = 'none';
+    loadVideoReports();
+  } catch (err) {
+    console.error('❌ Error dismissing report:', err);
+    showNotification('Error dismissing report: ' + err.message, 'error');
+  }
+}
+
+// ============================================================
+// EVENT LISTENERS FOR VIDEO MANAGEMENT
+// ============================================================
+
+document.getElementById('videoFilter')?.addEventListener('change', (e) => {
+  filterVideos(e.target.value);
+});
+
+document.getElementById('refreshVideosBtn')?.addEventListener('click', loadVideos);
+
+document.getElementById('flagVideoBtn')?.addEventListener('click', flagVideo);
+document.getElementById('deleteVideoBtn')?.addEventListener('click', deleteVideo);
+document.getElementById('banVideoCreatorBtn')?.addEventListener('click', banVideoCreator);
+
+document.getElementById('viewVideoBtn')?.addEventListener('click', () => {
+  if (selectedVideoData?.videoUrl) {
+    window.open(selectedVideoData.videoUrl, '_blank');
+  } else {
+    showNotification('❌ Video URL not available', 'error');
+  }
+});
+
+// Load videos when tab is clicked
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    if (this.getAttribute('data-tab') === 'videos') {
+      setTimeout(loadVideos, 100);
+    }
+    if (this.getAttribute('data-tab') === 'reports') {
+      setTimeout(loadVideoReports, 100);
+    }
+  });
+});
+
+// Report modal button listeners
+document.getElementById('markResolvedBtn')?.addEventListener('click', markReportReviewed);
+document.getElementById('blockReportedBtn')?.addEventListener('click', banCreatorFromReport);
+
+// Make functions globally accessible
+window.openVideoModal = openVideoModal;
+window.flagVideo = flagVideo;
+window.deleteVideo = deleteVideo;
+window.banVideoCreator = banVideoCreator;
+window.filterVideos = filterVideos;
+window.openVideoReportModal = openVideoReportModal;
+window.markReportReviewed = markReportReviewed;
+window.banCreatorFromReport = banCreatorFromReport;
+window.dismissReport = dismissReport;
+window.loadVideoReports = loadVideoReports;

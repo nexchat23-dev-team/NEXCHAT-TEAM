@@ -26,6 +26,9 @@
   <nav class="admin-nav">
     <button class="nav-btn active" data-tab="overview">📊 Overview</button>
     <button class="nav-btn" data-tab="users">👥 Users</button>
+    <button class="nav-btn" data-tab="gmail">📧 Gmail Users</button>
+    <button class="nav-btn" data-tab="messages">💬 Messages</button>
+    <button class="nav-btn" data-tab="videos">🎬 NEX-REELS</button>
     <button class="nav-btn" data-tab="reports">📋 Reports</button>
     <button class="nav-btn" data-tab="blocked">🚫 Blocked Users</button>
     <button class="nav-btn" data-tab="admins">👑 Manage Admins</button>
@@ -47,10 +50,17 @@
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">📨</div>
+          <div class="stat-icon">�</div>
           <div class="stat-info">
             <span class="stat-label">Total Messages</span>
             <span id="totalMessages" class="stat-value">0</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🎬</div>
+          <div class="stat-info">
+            <span class="stat-label">NEX-REELS Videos</span>
+            <span id="totalVideos" class="stat-value">0</span>
           </div>
         </div>
         <div class="stat-card">
@@ -98,7 +108,90 @@
       </div>
     </section>
 
-    <!-- REPORTS TAB -->
+    <!-- GMAIL USERS TAB -->
+    <section id="gmail" class="tab-content">
+      <h2>📧 Gmail Users</h2>
+      <div class="search-box">
+        <input type="text" id="gmailSearch" placeholder="Search Gmail users..." class="search-input">
+        <button class="search-btn">🔍</button>
+      </div>
+      <div class="gmail-stats">
+        <div class="stat-card">
+          <span class="stat-label">Total Gmail Users</span>
+          <span id="totalGmailUsers" class="stat-value">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Gmail Users Online</span>
+          <span id="gmailUsersOnline" class="stat-value">0</span>
+        </div>
+      </div>
+      <div class="gmail-users-container">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Profile</th>
+              <th>Username</th>
+              <th>Gmail Email</th>
+              <th>Status</th>
+              <th>Last Login</th>
+              <th>Joined</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="gmailUsersTableBody">
+            <tr class="loading"><td colspan="7">Loading Gmail users...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- MESSAGES TAB -->
+    <section id="messages" class="tab-content">
+      <h2>NEXCHAT Messages</h2>
+      <div class="search-box">
+        <input type="text" id="messageSearch" placeholder="Search messages..." class="search-input">
+        <button class="search-btn">🔍</button>
+      </div>
+      <div class="messages-stats">
+        <div class="stat-card">
+          <span class="stat-label">Avg Daily Messages</span>
+          <span id="avgMessages" class="stat-value">0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- NEX-REELS TAB -->
+    <section id="videos" class="tab-content">
+      <h2>🎬 NEX-REELS Video Monitoring</h2>
+      <div class="filter-box">
+        <select id="videoFilter" class="filter-select">
+          <option value="all">All Videos</option>
+          <option value="trending">Trending</option>
+          <option value="flagged">Flagged Content</option>
+          <option value="recent">Recent Uploads</option>
+        </select>
+        <button class="search-btn" id="refreshVideosBtn">🔄 Refresh</button>
+      </div>
+      
+      <div class="videos-stats">
+        <div class="stat-card">
+          <span class="stat-label">Total Videos</span>
+          <span id="videoStats" class="stat-value">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Flagged Videos</span>
+          <span id="flaggedVideos" class="stat-value">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Total Views</span>
+          <span id="totalViews" class="stat-value">0</span>
+        </div>
+      </div>
+
+      <div class="videos-container" id="videosContainer">
+        <div class="loading-message">Loading videos...</div>
+      </div>
+    </section>    <!-- REPORTS TAB -->
     <section id="reports" class="tab-content">
       <h2>User Reports</h2>
       <div class="filter-box">
@@ -112,9 +205,7 @@
       <div class="reports-container" id="reportsContainer">
         <div class="loading-message">Loading reports...</div>
       </div>
-    </section>
-
-    <!-- BLOCKED USERS TAB -->
+    </section>    <!-- BLOCKED USERS TAB -->
     <section id="blocked" class="tab-content">
       <h2>Blocked Users</h2>
       <div class="blocked-users-container" id="blockedUsersContainer">
@@ -212,15 +303,39 @@
 <div id="reportModal" class="modal" style="display: none;">
   <div class="modal-content">
     <div class="modal-header">
-      <h3>Report Details</h3>
+      <h3>Video Report Details</h3>
       <button class="close-btn" onclick="document.getElementById('reportModal').style.display='none'">✕</button>
     </div>
     <div class="modal-body">
       <div id="reportDetails"></div>
       <div class="action-buttons">
         <button id="markResolvedBtn" class="action-btn success-btn">✅ Mark Resolved</button>
-        <button id="blockReporterBtn" class="action-btn warn-btn">🚫 Block Reporter</button>
-        <button id="blockReportedBtn" class="action-btn danger-btn">⛔ Ban Reported User</button>
+        <button class="action-btn warn-btn" onclick="deleteReportedVideo()">🗑️ Delete Video</button>
+        <button id="blockReportedBtn" class="action-btn danger-btn">⛔ Ban Creator</button>
+        <button class="action-btn" onclick="dismissReport()" style="background: rgba(255,255,255,0.08);">➖ Dismiss Report</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Video Action Modal -->
+<div id="videoActionModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Video Actions</h3>
+      <button class="close-btn" onclick="document.getElementById('videoActionModal').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="videoActionInfo"></div>
+      <div class="video-preview-container">
+        <video id="videoPreview" style="max-width: 300px; max-height: 400px;"></video>
+        <img id="thumbnailPreview" style="max-width: 300px; max-height: 400px;">
+      </div>
+      <div class="action-buttons">
+        <button id="viewVideoBtn" class="action-btn view-btn">👁️ View Video</button>
+        <button id="flagVideoBtn" class="action-btn warn-btn">🚩 Flag Content</button>
+        <button id="deleteVideoBtn" class="action-btn danger-btn">🗑️ Delete Video</button>
+        <button id="banVideoCreatorBtn" class="action-btn danger-btn">⛔ Ban Creator</button>
       </div>
     </div>
   </div>

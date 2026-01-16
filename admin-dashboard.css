@@ -819,3 +819,155 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   NEX-REELS VIDEO MANAGEMENT STYLES
+   ============================================================ */
+
+.videos-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.video-card {
+  background: rgba(17, 17, 17, 0.8);
+  border: 1px solid rgba(0, 255, 102, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.video-card:hover {
+  transform: translateY(-5px);
+  border-color: #00ff66;
+  box-shadow: 0 0 15px rgba(0, 255, 102, 0.4);
+}
+
+.video-thumbnail {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  background: #000;
+  overflow: hidden;
+}
+
+.video-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  background: rgba(0, 255, 102, 0.1);
+}
+
+.video-duration {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.flag-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #ff0000;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.video-info {
+  padding: 12px;
+}
+
+.video-info h4 {
+  color: #00ff66;
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-author {
+  color: #00d4ff;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+}
+
+.video-stats {
+  display: flex;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: #a0a0a0;
+  margin-bottom: 6px;
+}
+
+.video-date {
+  color: #666;
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.videos-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.video-preview-container {
+  margin: 15px 0;
+  text-align: center;
+}
+
+.video-preview-container video,
+.video-preview-container img {
+  max-width: 100%;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.modal-info {
+  background: rgba(0, 255, 102, 0.05);
+  border: 1px solid rgba(0, 255, 102, 0.2);
+  padding: 15px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+}
+
+.modal-info h4 {
+  color: #00ff66;
+  margin-bottom: 10px;
+}
+
+.modal-info p {
+  color: #fff;
+  margin: 5px 0;
+  font-size: 0.9rem;
+}
+
+.empty-message {
+  text-align: center;
+  color: #666;
+  padding: 40px;
+  font-size: 1rem;
+}
