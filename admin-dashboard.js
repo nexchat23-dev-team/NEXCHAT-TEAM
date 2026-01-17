@@ -10,6 +10,8 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "http
 
 const storage = getStorage();
 
+console.log('Admin dashboard script loaded');
+
 function checkAdminAuth() {
   const adminToken = localStorage.getItem('adminToken');
   const adminEmail = localStorage.getItem('adminEmail');
@@ -96,16 +98,50 @@ function generateRandomPassword(length = 12) {
   return password;
 }
 
+// Initialize dashboard on DOM ready
+function initializeDashboard() {
+  console.log('Dashboard initialization starting');
+  
+  try {
+    if (!checkAdminAuth()) {
+      console.error('Admin auth check failed');
+      return;
+    }
+    
+    console.log('Admin authenticated, initializing dashboard');
+    currentAdminName = localStorage.getItem('adminEmail') || 'Admin';
+    const adminNameEl = document.getElementById('adminName');
+    if (adminNameEl) {
+      adminNameEl.textContent = `${currentAdminName} (Admin)`;
+    }
+    
+    loadOverviewStats();
+    console.log('Overview stats loaded');
+    
+    setupTabNavigation();
+    console.log('Tab navigation setup complete');
+    
+    setupEventListeners();
+    console.log('Event listeners setup complete');
+    
+    loadUsers();
+    console.log('Users loaded');
+  } catch (error) {
+    console.error('Fatal error during dashboard initialization:', error);
+    showNotification(`Error initializing dashboard: ${error.message}`, 'error');
+  }
+}
+
+// Try DOMContentLoaded first
+document.addEventListener('DOMContentLoaded', initializeDashboard);
+
+// Fallback to load event
 window.addEventListener('load', () => {
-  if (!checkAdminAuth()) return;
-  
-  currentAdminName = localStorage.getItem('adminEmail') || 'Admin';
-  document.getElementById('adminName').textContent = `${currentAdminName} (Admin)`;
-  
-  loadOverviewStats();
-  setupTabNavigation();
-  setupEventListeners();
-  loadUsers();
+  console.log('Window load event fired');
+  // Only initialize if not already done
+  if (!document.getElementById('usersTableBody')?.textContent?.includes('Loading')) {
+    initializeDashboard();
+  }
 });
 
 function setupEventListeners() {
@@ -184,9 +220,11 @@ function setupEventListeners() {
   window.addEventListener('click', (e) => {
     const userModal = document.getElementById('userActionModal');
     const reportModal = document.getElementById('reportModal');
+    const videoModal = document.getElementById('videoActionModal');
     
-    if (e.target === userModal) userModal.style.display = 'none';
-    if (e.target === reportModal) reportModal.style.display = 'none';
+    if (userModal && e.target === userModal) userModal.style.display = 'none';
+    if (reportModal && e.target === reportModal) reportModal.style.display = 'none';
+    if (videoModal && e.target === videoModal) videoModal.style.display = 'none';
   });
 
   // User action modal buttons
@@ -226,6 +264,31 @@ function setupEventListeners() {
         mintBtn.disabled = false;
         mintBtn.textContent = '🚀 Mint Tokens';
       }
+    });
+  }
+
+  const sendBtn = document.getElementById('sendTokensBtn');
+  if (sendBtn) {
+    sendBtn.addEventListener('click', async () => {
+      try {
+        sendBtn.disabled = true;
+        sendBtn.textContent = '⏳ Sending...';
+        await sendTokens();
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.textContent = '💸 Send Tokens';
+      }
+    });
+  }
+
+  const clearSendBtn = document.getElementById('clearSendFormBtn');
+  if (clearSendBtn) {
+    clearSendBtn.addEventListener('click', () => {
+      document.getElementById('sendFromUID').value = '';
+      document.getElementById('sendToUID').value = '';
+      document.getElementById('sendAmount').value = '';
+      document.getElementById('sendNote').value = '';
+      document.getElementById('sendResult').style.display = 'none';
     });
   }
 }
@@ -286,6 +349,94 @@ async function mintTokens() {
   }
 }
 
+// Send tokens from one user to another (admin facilitates transaction)
+async function sendTokens() {
+  const fromUID = (document.getElementById('sendFromUID')?.value || '').trim();
+  const toUID = (document.getElementById('sendToUID')?.value || '').trim();
+  const amountRaw = document.getElementById('sendAmount')?.value;
+  const note = (document.getElementById('sendNote')?.value || '').trim();
+  const resultDiv = document.getElementById('sendResult');
+
+  if (!fromUID || !toUID) {
+    showNotification('Both sender and recipient UIDs are required', 'error');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Both sender and recipient UIDs are required'; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+    return;
+  }
+
+  if (fromUID === toUID) {
+    showNotification('Sender and recipient cannot be the same', 'error');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Sender and recipient cannot be the same'; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+    return;
+  }
+
+  const amount = parseInt(amountRaw, 10);
+  if (!amount || amount <= 0) {
+    showNotification('Enter a valid token amount', 'error');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Enter a valid token amount'; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+    return;
+  }
+
+  try {
+    // Check sender exists and has enough tokens
+    const senderRef = doc(db, 'users', fromUID);
+    const senderSnap = await getDoc(senderRef);
+    if (!senderSnap.exists()) {
+      showNotification('Sender user not found', 'error');
+      if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Sender user not found'; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+      return;
+    }
+
+    const senderTokens = senderSnap.data().tokens || 0;
+    if (senderTokens < amount) {
+      showNotification(`Sender has insufficient tokens (has ${senderTokens}, needs ${amount})`, 'error');
+      if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = `Sender has insufficient tokens (has ${senderTokens}, needs ${amount})`; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+      return;
+    }
+
+    // Check recipient exists
+    const recipientRef = doc(db, 'users', toUID);
+    const recipientSnap = await getDoc(recipientRef);
+    if (!recipientSnap.exists()) {
+      showNotification('Recipient user not found', 'error');
+      if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Recipient user not found'; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+      return;
+    }
+
+    // Deduct from sender
+    await updateDoc(senderRef, { tokens: increment(-amount) });
+
+    // Add to recipient
+    await updateDoc(recipientRef, { tokens: increment(amount) });
+
+    // Log the transaction
+    await addDoc(collection(db, 'tokenTransactions'), {
+      admin: currentAdminName || localStorage.getItem('adminEmail') || 'admin',
+      fromUID,
+      toUID,
+      amount,
+      note: note || null,
+      type: 'transfer',
+      createdAt: serverTimestamp()
+    });
+
+    const senderName = senderSnap.data().username || senderSnap.data().email || fromUID.substring(0, 8);
+    const recipientName = recipientSnap.data().username || recipientSnap.data().email || toUID.substring(0, 8);
+
+    showNotification(`✅ Sent ${amount} tokens from ${senderName} to ${recipientName}`, 'success');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = `✅ Sent ${amount} tokens from ${senderName} to ${recipientName}`; resultDiv.style.background = 'rgba(33,150,243,0.06)'; }
+
+    // Clear inputs
+    document.getElementById('sendFromUID').value = '';
+    document.getElementById('sendToUID').value = '';
+    document.getElementById('sendAmount').value = '';
+    document.getElementById('sendNote').value = '';
+  } catch (error) {
+    console.error('Error sending tokens:', error);
+    showNotification('Error sending tokens: ' + error.message, 'error');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Error: ' + error.message; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+  }
+}
+
 // Quick console helper to test minting (admin must be authenticated in localStorage)
 window.testMint = async function(recipientUID, amount = 100, note = 'test') {
   document.getElementById('mintRecipientUID').value = recipientUID;
@@ -295,25 +446,47 @@ window.testMint = async function(recipientUID, amount = 100, note = 'test') {
 };
 
 function setupTabNavigation() {
-  document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tabName = btn.getAttribute('data-tab');
+  const navButtons = document.querySelectorAll('.nav-btn');
+  console.log('Found nav buttons:', navButtons.length);
+  
+  navButtons.forEach((btn, index) => {
+    const tabName = btn.getAttribute('data-tab');
+    console.log(`Setting up button ${index}: ${tabName}`);
+    
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       
+      console.log('Clicked tab:', tabName);
+      const tabElement = document.getElementById(tabName);
+      
+      if (!tabElement) {
+        console.error(`Tab element with id "${tabName}" not found`);
+        return;
+      }
+      
+      // Remove active from all nav buttons and tabs
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       
+      // Add active to current button and tab
       btn.classList.add('active');
-      document.getElementById(tabName).classList.add('active');
+      tabElement.classList.add('active');
       
-      if (tabName === 'users') loadUsers();
-      if (tabName === 'gmail') loadGmailUsers();
-      if (tabName === 'reports') loadReports();
-      if (tabName === 'blocked') loadBlockedUsers();
-      if (tabName === 'admins') loadAdmins();
-      if (tabName === 'watchReels') loadWatchReels();
-      if (tabName === 'postReels') initPostReels();
-      if (tabName === 'analytics') initAnalytics();
-      if (tabName === 'tokens') initTokenMinting();
+      // Load data for specific tabs
+      try {
+        if (tabName === 'users') loadUsers();
+        if (tabName === 'gmail') loadGmailUsers();
+        if (tabName === 'reports') loadReports();
+        if (tabName === 'blocked') loadBlockedUsers();
+        if (tabName === 'admins') loadAdmins();
+        if (tabName === 'watchReels') loadWatchReels();
+        if (tabName === 'postReels') initPostReels();
+        if (tabName === 'analytics') initAnalytics();
+        if (tabName === 'tokens') initTokenMinting();
+      } catch (error) {
+        console.error(`Error loading tab ${tabName}:`, error);
+      }
     });
   });
 }
