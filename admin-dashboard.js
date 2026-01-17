@@ -1,11 +1,14 @@
 import { auth, db } from "./firebase-config.js";
 import { 
   collection, doc, getDocs, updateDoc, deleteDoc, query, where,
-  onSnapshot, serverTimestamp, addDoc, getDoc
+  onSnapshot, serverTimestamp, addDoc, getDoc, orderBy, limit, increment
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 import {
   createUserWithEmailAndPassword, signOut, deleteUser as deleteAuthUser
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
+
+const storage = getStorage();
 
 function checkAdminAuth() {
   const adminToken = localStorage.getItem('adminToken');
@@ -210,7 +213,86 @@ function setupEventListeners() {
   document.querySelectorAll('.setting-btn').forEach(btn => {
     btn.addEventListener('click', handleSettingsActions);
   });
+
+  // Mint tokens button
+  const mintBtn = document.getElementById('mintTokensBtn');
+  if (mintBtn) {
+    mintBtn.addEventListener('click', async () => {
+      try {
+        mintBtn.disabled = true;
+        mintBtn.textContent = '⏳ Minting...';
+        await mintTokens();
+      } finally {
+        mintBtn.disabled = false;
+        mintBtn.textContent = '🚀 Mint Tokens';
+      }
+    });
+  }
 }
+
+// Mint tokens to a user (admin only - requires admin auth present in localStorage)
+async function mintTokens() {
+  const recipientUID = (document.getElementById('mintRecipientUID')?.value || '').trim();
+  const amountRaw = document.getElementById('mintAmount')?.value;
+  const note = (document.getElementById('mintNote')?.value || '').trim();
+  const resultDiv = document.getElementById('mintResult');
+
+  if (!recipientUID) {
+    showNotification('Recipient UID is required', 'error');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Recipient UID is required'; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+    return;
+  }
+
+  const amount = parseInt(amountRaw, 10);
+  if (!amount || amount <= 0) {
+    showNotification('Enter a valid token amount', 'error');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Enter a valid token amount'; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+    return;
+  }
+
+  try {
+    const userRef = doc(db, 'users', recipientUID);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+      showNotification('Recipient user not found', 'error');
+      if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Recipient user not found'; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+      return;
+    }
+
+    // Update user's token balance atomically
+    await updateDoc(userRef, { tokens: increment(amount) });
+
+    // Log the transaction
+    await addDoc(collection(db, 'tokenTransactions'), {
+      admin: currentAdminName || localStorage.getItem('adminEmail') || 'admin',
+      recipientUID,
+      amount,
+      note: note || null,
+      type: 'mint',
+      createdAt: serverTimestamp()
+    });
+
+    showNotification(`✅ Minted ${amount} tokens to ${recipientUID}`, 'success');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = `✅ Minted ${amount} tokens to ${recipientUID}`; resultDiv.style.background = 'rgba(76,175,80,0.06)'; }
+
+    // Clear inputs
+    document.getElementById('mintRecipientUID').value = '';
+    document.getElementById('mintAmount').value = '';
+    document.getElementById('mintNote').value = '';
+  } catch (error) {
+    console.error('Error minting tokens:', error);
+    showNotification('Error minting tokens: ' + error.message, 'error');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Error: ' + error.message; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+  }
+}
+
+// Quick console helper to test minting (admin must be authenticated in localStorage)
+window.testMint = async function(recipientUID, amount = 100, note = 'test') {
+  document.getElementById('mintRecipientUID').value = recipientUID;
+  document.getElementById('mintAmount').value = amount;
+  document.getElementById('mintNote').value = note;
+  return await mintTokens();
+};
 
 function setupTabNavigation() {
   document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -228,6 +310,10 @@ function setupTabNavigation() {
       if (tabName === 'reports') loadReports();
       if (tabName === 'blocked') loadBlockedUsers();
       if (tabName === 'admins') loadAdmins();
+      if (tabName === 'watchReels') loadWatchReels();
+      if (tabName === 'postReels') initPostReels();
+      if (tabName === 'analytics') initAnalytics();
+      if (tabName === 'tokens') initTokenMinting();
     });
   });
 }
@@ -1363,6 +1449,652 @@ window.flagVideo = flagVideo;
 window.deleteVideo = deleteVideo;
 window.banVideoCreator = banVideoCreator;
 window.filterVideos = filterVideos;
+
+// ========================================
+// WATCH REELS FUNCTIONS
+// ========================================
+async function loadWatchReels() {
+  const reelsFeed = document.getElementById('reelsFeed');
+  reelsFeed.innerHTML = '<div class="loading-message">Loading reels...</div>';
+  
+  try {
+    const videosQuery = query(
+      collection(db, 'videos'), 
+      orderBy('createdAt', 'desc'), 
+      limit(50)
+    );
+    
+    onSnapshot(videosQuery, (snap) => {
+      reelsFeed.innerHTML = '';
+      
+      if (snap.docs.length === 0) {
+        reelsFeed.innerHTML = '<div class="loading-message">No reels uploaded yet 📹</div>';
+        document.getElementById('totalReels').textContent = '0';
+        document.getElementById('reelsViews').textContent = '0';
+        document.getElementById('reelsLikes').textContent = '0';
+        return;
+      }
+      
+      let totalViews = 0;
+      let totalLikes = 0;
+      
+      snap.docs.forEach(doc => {
+        const video = doc.data();
+        totalViews += video.views || 0;
+        totalLikes += video.likes || 0;
+        
+        const reelCard = document.createElement('div');
+        reelCard.className = 'reel-card';
+        
+        const timeStr = video.createdAt 
+          ? new Date(video.createdAt.toDate?.() || video.createdAt).toLocaleDateString()
+          : 'Unknown';
+        
+        reelCard.innerHTML = `
+          <div class="reel-card-title">🎬 ${video.title || 'Untitled'}</div>
+          <div class="reel-card-author">By @${video.author || 'Unknown'}</div>
+          <div style="color: #888; font-size: 0.8rem; margin-bottom: 8px;">${timeStr}</div>
+          <div style="color: #999; font-size: 0.85rem; margin-bottom: 10px; line-height: 1.3;">${video.description || 'No description'}</div>
+          <div class="reel-card-stats">
+            <div class="reel-card-stat">👁️ ${video.views || 0}</div>
+            <div class="reel-card-stat">❤️ ${video.likes || 0}</div>
+            <div class="reel-card-stat">💬 ${video.comments?.length || 0}</div>
+          </div>
+        `;
+        
+        reelsFeed.appendChild(reelCard);
+      });
+      
+      document.getElementById('totalReels').textContent = snap.docs.length;
+      document.getElementById('reelsViews').textContent = totalViews;
+      document.getElementById('reelsLikes').textContent = totalLikes;
+      
+    });
+  } catch (error) {
+    console.error('Error loading reels:', error);
+    reelsFeed.innerHTML = `<div style="color: #ff4d4d;">Error loading reels: ${error.message}</div>`;
+  }
+}
+
+// ========================================
+// POST REELS FUNCTIONS
+// ========================================
+function initPostReels() {
+  const publishBtn = document.getElementById('publishReelBtn');
+  const videoFile = document.getElementById('adminVideoFile');
+  const videoPreview = document.getElementById('adminVideoPreview');
+  const uploadPreview = document.getElementById('uploadPreview');
+  
+  // Video preview
+  if (videoFile) {
+    videoFile.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const url = URL.createObjectURL(file);
+        videoPreview.src = url;
+        uploadPreview.style.display = 'block';
+      }
+    });
+  }
+  
+  // Publish button
+  if (publishBtn) {
+    publishBtn.addEventListener('click', publishAdminReel);
+  }
+  
+  // Load admin's existing reels
+  loadAdminReels();
+}
+
+async function publishAdminReel() {
+  const title = document.getElementById('adminReelTitle');
+  const description = document.getElementById('adminReelDescription');
+  const videoFile = document.getElementById('adminVideoFile');
+  const thumbnail = document.getElementById('adminVideoThumbnail');
+  const uploadStatus = document.getElementById('uploadStatus');
+  const publishBtn = document.getElementById('publishReelBtn');
+  
+  if (!title.value.trim()) {
+    uploadStatus.innerHTML = '❌ Please enter a title';
+    uploadStatus.className = 'error';
+    uploadStatus.style.display = 'block';
+    return;
+  }
+  
+  if (!videoFile.files[0]) {
+    uploadStatus.innerHTML = '❌ Please select a video file';
+    uploadStatus.className = 'error';
+    uploadStatus.style.display = 'block';
+    return;
+  }
+  
+  const file = videoFile.files[0];
+  if (file.size > 500 * 1024 * 1024) {
+    uploadStatus.innerHTML = '❌ Video too large (max 500MB)';
+    uploadStatus.className = 'error';
+    uploadStatus.style.display = 'block';
+    return;
+  }
+  
+  try {
+    publishBtn.disabled = true;
+    publishBtn.textContent = '⏳ Publishing...';
+    uploadStatus.innerHTML = '⏳ Uploading video...';
+    uploadStatus.className = 'loading';
+    uploadStatus.style.display = 'block';
+    
+    const timestamp = Date.now();
+    const videoPath = `admin-reels/${currentAdminName}/${timestamp}_${file.name}`;
+    const videoRef = storageRef(storage, videoPath);
+    
+    await uploadBytes(videoRef, file);
+    const videoUrl = await getDownloadURL(videoRef);
+    
+    let thumbnailUrl = '';
+    if (thumbnail.files[0]) {
+      const thumbFile = thumbnail.files[0];
+      if (thumbFile.size < 5 * 1024 * 1024) {
+        const thumbPath = `admin-reels-thumbs/${currentAdminName}/${timestamp}_${thumbFile.name}`;
+        const thumbRef = storageRef(storage, thumbPath);
+        await uploadBytes(thumbRef, thumbFile);
+        thumbnailUrl = await getDownloadURL(thumbRef);
+      }
+    }
+    
+    await addDoc(collection(db, 'videos'), {
+      title: title.value.trim(),
+      description: description.value.trim(),
+      author: currentAdminName + ' (Admin)',
+      authorId: auth.currentUser.uid,
+      videoUrl: videoUrl,
+      thumbnailUrl: thumbnailUrl,
+      createdAt: new Date(),
+      likes: 0,
+      comments: [],
+      views: 0,
+      shares: 0,
+      isAdminContent: true
+    });
+    
+    uploadStatus.innerHTML = '✅ Reel published successfully!';
+    uploadStatus.className = 'success';
+    uploadStatus.style.display = 'block';
+    
+    title.value = '';
+    description.value = '';
+    videoFile.value = '';
+    thumbnail.value = '';
+    document.getElementById('uploadPreview').style.display = 'none';
+    
+    publishBtn.disabled = false;
+    publishBtn.textContent = '🚀 Publish Reel';
+    
+    loadAdminReels();
+    
+  } catch (error) {
+    console.error('Error publishing reel:', error);
+    uploadStatus.innerHTML = `❌ Error: ${error.message}`;
+    uploadStatus.className = 'error';
+    uploadStatus.style.display = 'block';
+    publishBtn.disabled = false;
+    publishBtn.textContent = '🚀 Publish Reel';
+  }
+}
+
+async function loadAdminReels() {
+  try {
+    const adminReelsList = document.querySelector('.admin-reels-list');
+    adminReelsList.innerHTML = '<div class="loading-message">Loading your reels...</div>';
+    
+    const reelsQuery = query(
+      collection(db, 'videos'),
+      where('authorId', '==', auth.currentUser.uid),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const snap = await getDocs(reelsQuery);
+    adminReelsList.innerHTML = '';
+    
+    if (snap.docs.length === 0) {
+      adminReelsList.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; padding: 20px;">No reels published yet</div>';
+      return;
+    }
+    
+    snap.docs.forEach(doc => {
+      const video = doc.data();
+      const item = document.createElement('div');
+      item.className = 'admin-reel-item';
+      item.innerHTML = `
+        <div class="admin-reel-item-title">${video.title || 'Untitled'}</div>
+        <div class="admin-reel-item-stat">
+          <span>👁️ <strong>${video.views || 0}</strong></span>
+          <span>❤️ <strong>${video.likes || 0}</strong></span>
+          <span>💬 <strong>${video.comments?.length || 0}</strong></span>
+        </div>
+      `;
+      adminReelsList.appendChild(item);
+    });
+    
+  } catch (error) {
+    console.error('Error loading admin reels:', error);
+  }
+}
+
+// ========================================
+// ANALYTICS & USER TRACKING
+// ========================================
+
+async function initAnalytics() {
+  loadPlatformAnalytics();
+  setupAnalyticsSearchHandler();
+  setupRefreshButton();
+  
+  // Auto-refresh every 30 seconds
+  setInterval(loadPlatformAnalytics, 30000);
+}
+
+async function loadPlatformAnalytics() {
+  try {
+    // Count total users
+    const usersSnap = await getDocs(collection(db, 'users'));
+    document.getElementById('analyticsTotal Users').textContent = usersSnap.docs.length;
+    
+    // Count total messages
+    const messagesSnap = await getDocs(collection(db, 'messageActivity'));
+    document.getElementById('analyticsTotalMessages').textContent = messagesSnap.docs.length;
+    
+    // Count total videos
+    const videosSnap = await getDocs(collection(db, 'videoActivity'));
+    document.getElementById('analyticsTotalVideos').textContent = videosSnap.docs.length;
+    
+    // Count views from video engagement
+    const viewsSnap = await getDocs(
+      query(
+        collection(db, 'videoEngagement'),
+        where('engagementType', '==', 'view')
+      )
+    );
+    document.getElementById('analyticsTotalViews').textContent = viewsSnap.docs.length;
+    
+    // Count new users in last 24 hours
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const newUsersSnap = await getDocs(
+      query(
+        collection(db, 'userRegistrations'),
+        where('registeredAt', '>=', oneDayAgo)
+      )
+    );
+    document.getElementById('analyticsDailyNewUsers').textContent = newUsersSnap.docs.length;
+    
+    // Count active users in last 24 hours
+    const activeUsersSnap = await getDocs(
+      query(
+        collection(db, 'userActivity'),
+        where('timestamp', '>=', oneDayAgo)
+      )
+    );
+    const activeUserIds = new Set(activeUsersSnap.docs.map(d => d.data().userId));
+    document.getElementById('analyticsActiveUsers').textContent = activeUserIds.size;
+    
+  } catch (error) {
+    console.error('Error loading platform analytics:', error);
+  }
+}
+
+function setupAnalyticsSearchHandler() {
+  const searchBtn = document.getElementById('analyticsSearchBtn');
+  const searchInput = document.getElementById('analyticsUserSearch');
+  
+  if (searchBtn) {
+    searchBtn.addEventListener('click', searchUserAnalytics);
+  }
+  
+  if (searchInput) {
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') searchUserAnalytics();
+    });
+  }
+}
+
+async function searchUserAnalytics() {
+  const searchTerm = document.getElementById('analyticsUserSearch').value.toLowerCase().trim();
+  const resultDiv = document.getElementById('analyticsUserResult');
+  const contentDiv = document.getElementById('userStatsContent');
+  
+  if (!searchTerm) {
+    resultDiv.style.display = 'none';
+    return;
+  }
+  
+  try {
+    contentDiv.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #00ff66;">⏳ Loading user analytics...</div>';
+    resultDiv.style.display = 'block';
+    
+    // Search users by UID, email, or username
+    const usersSnap = await getDocs(collection(db, 'users'));
+    let foundUser = null;
+    
+    for (const doc of usersSnap.docs) {
+      const userData = doc.data();
+      if (
+        doc.id.toLowerCase().includes(searchTerm) ||
+        (userData.email && userData.email.toLowerCase().includes(searchTerm)) ||
+        (userData.username && userData.username.toLowerCase().includes(searchTerm))
+      ) {
+        foundUser = { id: doc.id, data: userData };
+        break;
+      }
+    }
+    
+    if (!foundUser) {
+      contentDiv.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #ff6666;">❌ User not found</div>';
+      return;
+    }
+    
+    // Get user stats
+    const userId = foundUser.id;
+    
+    // Registration info
+    const regQuery = query(
+      collection(db, 'userRegistrations'),
+      where('userId', '==', userId)
+    );
+    const regSnap = await getDocs(regQuery);
+    let accountAge = 'Unknown';
+    if (regSnap.docs.length > 0) {
+      const regData = regSnap.docs[0].data();
+      accountAge = Math.floor((Date.now() - regData.registeredAt.toDate().getTime()) / (1000 * 60 * 60 * 24)) + ' days';
+    }
+    
+    // Messages sent
+    const sentQuery = query(
+      collection(db, 'messageActivity'),
+      where('userId', '==', userId)
+    );
+    const sentSnap = await getDocs(sentQuery);
+    
+    // Messages received
+    const receivedQuery = query(
+      collection(db, 'messageActivity'),
+      where('recipientId', '==', userId)
+    );
+    const receivedSnap = await getDocs(receivedQuery);
+    
+    // Videos uploaded
+    const videoUploadQuery = query(
+      collection(db, 'videoActivity'),
+      where('userId', '==', userId)
+    );
+    const videoUploadSnap = await getDocs(videoUploadQuery);
+    
+    // Video engagements
+    const engagementQuery = query(
+      collection(db, 'videoEngagement'),
+      where('userId', '==', userId)
+    );
+    const engagementSnap = await getDocs(engagementQuery);
+    
+    let videoViews = 0, videoLikes = 0, videoComments = 0;
+    engagementSnap.docs.forEach(doc => {
+      const engagement = doc.data();
+      if (engagement.engagementType === 'view') videoViews++;
+      if (engagement.engagementType === 'like') videoLikes++;
+      if (engagement.engagementType === 'comment') videoComments++;
+    });
+    
+    // Build HTML
+    contentDiv.innerHTML = `
+      <div class="user-stat-item">
+        <div class="user-stat-label">👤 Username</div>
+        <div class="user-stat-value">${foundUser.data.username || 'N/A'}</div>
+      </div>
+      <div class="user-stat-item">
+        <div class="user-stat-label">📧 Email</div>
+        <div class="user-stat-value" style="font-size: 0.9rem; word-break: break-all;">${foundUser.data.email || 'N/A'}</div>
+      </div>
+      <div class="user-stat-item">
+        <div class="user-stat-label">📅 Account Age</div>
+        <div class="user-stat-value">${accountAge}</div>
+      </div>
+      <div class="user-stat-item">
+        <div class="user-stat-label">💰 Tokens</div>
+        <div class="user-stat-value">${foundUser.data.tokens || 0}</div>
+      </div>
+      <div class="user-stat-item">
+        <div class="user-stat-label">💬 Messages Sent</div>
+        <div class="user-stat-value">${sentSnap.docs.length}</div>
+      </div>
+      <div class="user-stat-item">
+        <div class="user-stat-label">📬 Messages Received</div>
+        <div class="user-stat-value">${receivedSnap.docs.length}</div>
+      </div>
+      <div class="user-stat-item">
+        <div class="user-stat-label">🎬 Videos Uploaded</div>
+        <div class="user-stat-value">${videoUploadSnap.docs.length}</div>
+      </div>
+      <div class="user-stat-item">
+        <div class="user-stat-label">👁️ Video Views</div>
+        <div class="user-stat-value">${videoViews}</div>
+      </div>
+      <div class="user-stat-item">
+        <div class="user-stat-label">❤️ Video Likes</div>
+        <div class="user-stat-value">${videoLikes}</div>
+      </div>
+      <div class="user-stat-item">
+        <div class="user-stat-label">💬 Video Comments</div>
+        <div class="user-stat-value">${videoComments}</div>
+      </div>
+      <div class="user-stat-item">
+        <div class="user-stat-label">🌍 Registration IP</div>
+        <div class="user-stat-value" style="font-size: 0.85rem;">${foundUser.data.registrationIP || 'N/A'}</div>
+      </div>
+      <div class="user-stat-item">
+        <div class="user-stat-label">📍 Country</div>
+        <div class="user-stat-value">${foundUser.data.registrationCountry || 'N/A'}</div>
+      </div>
+    `;
+    
+  } catch (error) {
+    console.error('Error searching user analytics:', error);
+    contentDiv.innerHTML = `<div style="grid-column: 1/-1; color: #ff6666;">❌ Error: ${error.message}</div>`;
+  }
+}
+
+function setupRefreshButton() {
+  const refreshBtn = document.getElementById('refreshAnalyticsBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      refreshBtn.textContent = '⏳ Refreshing...';
+      loadPlatformAnalytics().then(() => {
+        refreshBtn.textContent = '🔄 Refresh Now';
+      });
+    });
+  }
+}
+
+// Token Minting System
+async function initTokenMinting() {
+  await loadTokenStatistics();
+  await loadTransactionHistory();
+  setupTokenMintingListeners();
+}
+
+function setupTokenMintingListeners() {
+  const clearBtn = document.getElementById('clearMintFormBtn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      document.getElementById('mintRecipientUID').value = '';
+      document.getElementById('mintAmount').value = '';
+      document.getElementById('mintNote').value = '';
+      document.getElementById('mintResult').style.display = 'none';
+    });
+  }
+
+  const lookupBtn = document.getElementById('lookupBalanceBtn');
+  if (lookupBtn) {
+    lookupBtn.addEventListener('click', async () => {
+      await lookupUserTokenBalance();
+    });
+  }
+
+  const lookupInput = document.getElementById('balanceLookupInput');
+  if (lookupInput) {
+    lookupInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        lookupUserTokenBalance();
+      }
+    });
+  }
+
+  const txnFilter = document.getElementById('txnFilter');
+  if (txnFilter) {
+    txnFilter.addEventListener('change', async () => {
+      await loadTransactionHistory();
+    });
+  }
+}
+
+async function loadTokenStatistics() {
+  try {
+    const txnsSnapshot = await getDocs(collection(db, 'tokenTransactions'));
+    const txns = txnsSnapshot.docs.map(d => d.data());
+    
+    // Total tokens minted
+    const totalMinted = txns
+      .filter(t => t.type === 'mint')
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+    
+    document.getElementById('totalTokensMinted').textContent = totalMinted.toLocaleString();
+    document.getElementById('totalTokenTxns').textContent = txns.length;
+    
+    // Last mint time
+    const lastMint = txns
+      .filter(t => t.type === 'mint')
+      .sort((a, b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0))[0];
+    
+    if (lastMint && lastMint.createdAt) {
+      const lastTime = lastMint.createdAt.toDate?.() || new Date(lastMint.createdAt);
+      const timeStr = lastTime.toLocaleString();
+      document.getElementById('lastMintTime').textContent = timeStr;
+    }
+  } catch (error) {
+    console.error('Error loading token statistics:', error);
+  }
+}
+
+async function loadTransactionHistory() {
+  try {
+    const filter = document.getElementById('txnFilter')?.value || 'all';
+    let txnsSnapshot = await getDocs(
+      query(
+        collection(db, 'tokenTransactions'),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+      )
+    );
+    
+    let txns = txnsSnapshot.docs.map(d => d.data());
+    
+    if (filter !== 'all') {
+      txns = txns.filter(t => t.type === filter);
+    }
+    
+    const txnsList = document.getElementById('transactionsList');
+    txnsList.innerHTML = '';
+    
+    if (txns.length === 0) {
+      txnsList.innerHTML = '<div class="loading-message">No transactions found</div>';
+      return;
+    }
+    
+    txns.forEach(txn => {
+      const txnTime = txn.createdAt?.toDate?.() || new Date(txn.createdAt);
+      const timeStr = txnTime.toLocaleString();
+      
+      const txnEl = document.createElement('div');
+      txnEl.className = 'transaction-item';
+      txnEl.innerHTML = `
+        <div class="transaction-info">
+          <div class="transaction-type">
+            ${txn.type === 'mint' ? '🚀' : txn.type === 'transfer' ? '➡️' : '🔥'} 
+            ${txn.type.toUpperCase()}
+          </div>
+          <div class="transaction-details">
+            ${txn.note ? `<strong>${txn.note}</strong> • ` : ''}
+            By: ${txn.admin || 'system'} • ${timeStr}
+          </div>
+        </div>
+        <div class="transaction-amount">+${txn.amount} tokens</div>
+      `;
+      txnsList.appendChild(txnEl);
+    });
+  } catch (error) {
+    console.error('Error loading transaction history:', error);
+    document.getElementById('transactionsList').innerHTML = `<div class="loading-message" style="color: red;">Error: ${error.message}</div>`;
+  }
+}
+
+async function lookupUserTokenBalance() {
+  const searchTerm = (document.getElementById('balanceLookupInput')?.value || '').trim();
+  const resultDiv = document.getElementById('balanceResult');
+  
+  if (!searchTerm) {
+    resultDiv.style.display = 'none';
+    return;
+  }
+  
+  try {
+    resultDiv.innerHTML = '<div style="color: #888;">🔍 Searching...</div>';
+    resultDiv.style.display = 'block';
+    
+    let user = null;
+    
+    // Try UID first
+    const userRef = doc(db, 'users', searchTerm);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      user = { id: searchTerm, data: userSnap.data() };
+    } else {
+      // Try email
+      const emailQuery = await getDocs(query(collection(db, 'users'), where('email', '==', searchTerm)));
+      if (emailQuery.docs.length > 0) {
+        user = { id: emailQuery.docs[0].id, data: emailQuery.docs[0].data() };
+      }
+    }
+    
+    if (!user) {
+      resultDiv.className = 'balance-result not-found';
+      resultDiv.innerHTML = `<div style="color: #ff3c3c;">❌ User not found</div>`;
+      return;
+    }
+    
+    resultDiv.className = 'balance-result';
+    resultDiv.innerHTML = `
+      <div class="balance-item">
+        <div class="balance-label">Username</div>
+        <div class="balance-value">${user.data.username || user.data.displayName || 'N/A'}</div>
+      </div>
+      <div class="balance-item">
+        <div class="balance-label">Email</div>
+        <div class="balance-value" style="font-size: 0.95rem; word-break: break-all;">${user.data.email || 'N/A'}</div>
+      </div>
+      <div class="balance-item">
+        <div class="balance-label">💰 Current Token Balance</div>
+        <div class="balance-value">${(user.data.tokens || 0).toLocaleString()} tokens</div>
+      </div>
+      <div class="balance-item">
+        <div class="balance-label">User ID</div>
+        <div class="balance-value" style="font-size: 0.85rem; word-break: break-all;">${user.id}</div>
+      </div>
+    `;
+  } catch (error) {
+    console.error('Error looking up balance:', error);
+    resultDiv.className = 'balance-result not-found';
+    resultDiv.innerHTML = `<div style="color: #ff3c3c;">❌ Error: ${error.message}</div>`;
+    resultDiv.style.display = 'block';
+  }
+}
+
 window.openVideoReportModal = openVideoReportModal;
 window.markReportReviewed = markReportReviewed;
 window.banCreatorFromReport = banCreatorFromReport;

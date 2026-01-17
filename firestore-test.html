@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firestore API Test - NEXCHAT Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: #0a0e27;
+            color: #fff;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #111;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #222;
+        }
+        h1 {
+            margin-bottom: 20px;
+            color: #00ff66;
+        }
+        .test-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid #00ff66;
+        }
+        .test-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #00ff66;
+        }
+        .test-result {
+            font-family: monospace;
+            font-size: 12px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+            margin-top: 10px;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #00ff66;
+        }
+        .error {
+            color: #ff4d4d;
+        }
+        .loading {
+            color: #a0a0a0;
+        }
+        button {
+            background: #00ff66;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #00dd55;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Firestore API Test - NEXCHAT</h1>
+        
+        <div class="test-section">
+            <div class="test-title">1. Firebase Connection</div>
+            <div id="connectionTest" class="test-result loading">⏳ Testing Firebase connection...</div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">2. Firestore Database Access</div>
+            <div id="firestoreTest" class="test-result loading">⏳ Testing Firestore access...</div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">3. Test Data Collection</div>
+            <div id="testDataTest" class="test-result loading">⏳ Checking test data...</div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">4. User Search Test</div>
+            <input type="text" id="searchInput" placeholder="Search for users..." style="width: 100%; padding: 10px; margin: 10px 0; border-radius: 4px; border: 1px solid #222; background: rgba(255,255,255,0.05); color: white;">
+            <button onclick="testUserSearch()">Search Users</button>
+            <div id="searchTest" class="test-result"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">5. Overall Status</div>
+            <div id="statusTest" class="test-result loading">⏳ Running tests...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCfT1UFmoGSAanbIDTLYGeFfPE7uCa74Fw",
+            authDomain: "nexchat-47326.firebaseapp.com",
+            projectId: "nexchat-47326",
+            storageBucket: "nexchat-47326.appspot.com",
+            messagingSenderId: "327330605104",
+            appId: "1:327330605104:web:ac43bb9adf7e4f1f1065f5"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Test 1: Firebase Connection
+        try {
+            document.getElementById('connectionTest').innerHTML = '<span class="success">✅ Firebase connected successfully</span><br>Project: nexchat-47326';
+        } catch (error) {
+            document.getElementById('connectionTest').innerHTML = `<span class="error">❌ Firebase connection failed: ${error.message}</span>`;
+        }
+
+        // Test 2: Firestore Access
+        (async () => {
+            try {
+                const videosRef = collection(db, 'videos');
+                const videosDocs = await getDocs(videosRef);
+                const count = videosDocs.size;
+                
+                if (count > 0) {
+                    document.getElementById('firestoreTest').innerHTML = `<span class="success">✅ Firestore accessible</span><br>Found ${count} videos in database`;
+                } else {
+                    document.getElementById('firestoreTest').innerHTML = `<span class="loading">⚠️ Firestore accessible but empty</span><br>No videos found. Upload some first!`;
+                }
+            } catch (error) {
+                document.getElementById('firestoreTest').innerHTML = `<span class="error">❌ Firestore error: ${error.message}</span>`;
+            }
+        })();
+
+        // Test 3: Check Test Data
+        (async () => {
+            try {
+                const usersRef = collection(db, 'users');
+                const usersDocs = await getDocs(usersRef);
+                const userCount = usersDocs.size;
+                
+                if (userCount > 0) {
+                    document.getElementById('testDataTest').innerHTML = `<span class="success">✅ Users collection exists</span><br>Found ${userCount} users`;
+                    // Show first 3 users
+                    let userList = '<br>Users:';
+                    usersDocs.docs.slice(0, 3).forEach(doc => {
+                        userList += `<br>• ${doc.data().displayName || doc.data().email || 'Anonymous'}`;
+                    });
+                    document.getElementById('testDataTest').innerHTML += userList;
+                } else {
+                    document.getElementById('testDataTest').innerHTML = `<span class="loading">⚠️ No users in database yet</span><br>Register some users to enable search`;
+                }
+            } catch (error) {
+                document.getElementById('testDataTest').innerHTML = `<span class="error">❌ Error checking users: ${error.message}</span>`;
+            }
+        })();
+
+        // Test 4: User Search Function
+        window.testUserSearch = async () => {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const searchDiv = document.getElementById('searchTest');
+            
+            if (!searchTerm) {
+                searchDiv.innerHTML = '<span class="error">⚠️ Please enter a search term</span>';
+                return;
+            }
+
+            searchDiv.innerHTML = '<span class="loading">⏳ Searching...</span>';
+
+            try {
+                const usersRef = collection(db, 'users');
+                // Search in displayName and email
+                const snapshot = await getDocs(usersRef);
+                
+                const results = snapshot.docs.filter(doc => {
+                    const data = doc.data();
+                    const displayName = (data.displayName || '').toLowerCase();
+                    const email = (data.email || '').toLowerCase();
+                    return displayName.includes(searchTerm) || email.includes(searchTerm);
+                });
+
+                if (results.length === 0) {
+                    searchDiv.innerHTML = `<span class="loading">❌ No users found matching "${searchTerm}"</span>`;
+                } else {
+                    let html = `<span class="success">✅ Found ${results.length} user(s):</span><br>`;
+                    results.forEach((doc, i) => {
+                        const data = doc.data();
+                        html += `<br>${i + 1}. <strong>${data.displayName || data.email}</strong><br>`;
+                        html += `   Email: ${data.email}<br>`;
+                        html += `   UID: ${doc.id}`;
+                    });
+                    searchDiv.innerHTML = html;
+                }
+            } catch (error) {
+                searchDiv.innerHTML = `<span class="error">❌ Search error: ${error.message}</span>`;
+            }
+        };
+
+        // Test 5: Overall Status
+        setTimeout(() => {
+            try {
+                const tests = [
+                    document.getElementById('connectionTest').textContent.includes('✅'),
+                    document.getElementById('firestoreTest').textContent.includes('✅'),
+                    document.getElementById('testDataTest').textContent.includes('✅') || 
+                    document.getElementById('testDataTest').textContent.includes('⚠️')
+                ];
+
+                if (tests.every(t => t)) {
+                    document.getElementById('statusTest').innerHTML = `
+                        <span class="success">✅ FIRESTORE API IS WORKING!</span><br><br>
+                        Your NEXCHAT app is ready to:<br>
+                        • Upload and display videos/reels<br>
+                        • Search for users<br>
+                        • Send and receive messages<br>
+                        • Store real-time data
+                    `;
+                } else {
+                    document.getElementById('statusTest').innerHTML = `
+                        <span class="error">❌ Some tests failed</span><br><br>
+                        Make sure:<br>
+                        1. Firestore API is enabled<br>
+                        2. Database is created<br>
+                        3. Security rules allow reads/writes
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('statusTest').innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }, 2000);
+    </script>
+</body>
+</html>

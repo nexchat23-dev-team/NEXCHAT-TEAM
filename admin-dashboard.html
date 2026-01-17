@@ -26,12 +26,16 @@
   <nav class="admin-nav">
     <button class="nav-btn active" data-tab="overview">📊 Overview</button>
     <button class="nav-btn" data-tab="users">👥 Users</button>
+    <button class="nav-btn" data-tab="analytics">📈 Analytics</button>
     <button class="nav-btn" data-tab="gmail">📧 Gmail Users</button>
     <button class="nav-btn" data-tab="messages">💬 Messages</button>
+    <button class="nav-btn" data-tab="watchReels">👁️ Watch Reels</button>
+    <button class="nav-btn" data-tab="postReels">🎬 Post Reels</button>
     <button class="nav-btn" data-tab="videos">🎬 NEX-REELS</button>
     <button class="nav-btn" data-tab="reports">📋 Reports</button>
     <button class="nav-btn" data-tab="blocked">🚫 Blocked Users</button>
     <button class="nav-btn" data-tab="admins">👑 Manage Admins</button>
+    <button class="nav-btn" data-tab="tokens">💰 Token Minting</button>
     <button class="nav-btn" data-tab="settings">⚙️ Settings</button>
   </nav>
 
@@ -76,6 +80,96 @@
             <span class="stat-label">Blocked Users</span>
             <span id="blockedCount" class="stat-value">0</span>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ANALYTICS TAB -->
+    <section id="analytics" class="tab-content">
+      <h2>📈 User Analytics & Tracking</h2>
+      <div class="analytics-container">
+        <!-- Platform Analytics -->
+        <div class="analytics-section">
+          <h3>🌍 Platform Analytics</h3>
+          <div class="analytics-grid">
+            <div class="analytics-card">
+              <div class="analytics-icon">👥</div>
+              <div class="analytics-label">Total Users</div>
+              <div class="analytics-value" id="analyticsTotal Users">0</div>
+            </div>
+            <div class="analytics-card">
+              <div class="analytics-icon">✨</div>
+              <div class="analytics-label">New Users (24h)</div>
+              <div class="analytics-value" id="analyticsDailyNewUsers">0</div>
+            </div>
+            <div class="analytics-card">
+              <div class="analytics-icon">🔥</div>
+              <div class="analytics-label">Active (24h)</div>
+              <div class="analytics-value" id="analyticsActiveUsers">0</div>
+            </div>
+            <div class="analytics-card">
+              <div class="analytics-icon">💬</div>
+              <div class="analytics-label">Total Messages</div>
+              <div class="analytics-value" id="analyticsTotalMessages">0</div>
+            </div>
+            <div class="analytics-card">
+              <div class="analytics-icon">🎬</div>
+              <div class="analytics-label">Total Videos</div>
+              <div class="analytics-value" id="analyticsTotalVideos">0</div>
+            </div>
+            <div class="analytics-card">
+              <div class="analytics-icon">👁️</div>
+              <div class="analytics-label">Total Views</div>
+              <div class="analytics-value" id="analyticsTotalViews">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Search & Stats -->
+        <div class="analytics-section">
+          <h3>🔍 User Detailed Analytics</h3>
+          <div class="search-box" style="margin-bottom: 20px;">
+            <input type="text" id="analyticsUserSearch" placeholder="Search user by UID, email, or username..." class="search-input">
+            <button id="analyticsSearchBtn" class="search-btn">🔍 Search</button>
+          </div>
+          
+          <div id="analyticsUserResult" style="display: none; background: rgba(0, 255, 102, 0.05); border: 1px solid #00ff66; padding: 20px; border-radius: 8px; margin-top: 15px;">
+            <div id="userStatsContent"></div>
+          </div>
+        </div>
+
+        <!-- Activity Tracking -->
+        <div class="analytics-section">
+          <h3>📊 Activity Tracking Status</h3>
+          <div class="tracking-status">
+            <div class="tracking-item">
+              <span class="tracking-label">✅ User Registration Tracking</span>
+              <span class="tracking-status-badge active">Active</span>
+            </div>
+            <div class="tracking-item">
+              <span class="tracking-label">✅ Message Activity Tracking</span>
+              <span class="tracking-status-badge active">Active</span>
+            </div>
+            <div class="tracking-item">
+              <span class="tracking-label">✅ Video Upload Tracking</span>
+              <span class="tracking-status-badge active">Active</span>
+            </div>
+            <div class="tracking-item">
+              <span class="tracking-label">✅ Video Engagement Tracking</span>
+              <span class="tracking-status-badge active">Active</span>
+            </div>
+            <div class="tracking-item">
+              <span class="tracking-label">✅ User Activity Logging</span>
+              <span class="tracking-status-badge active">Active</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-time Updates -->
+        <div class="analytics-section">
+          <h3>🔄 Auto-Refresh Analytics</h3>
+          <button id="refreshAnalyticsBtn" class="refresh-analytics-btn">🔄 Refresh Now</button>
+          <p style="color: #888; font-size: 0.9rem; margin-top: 10px;">Analytics update automatically every 30 seconds</p>
         </div>
       </div>
     </section>
@@ -160,7 +254,87 @@
       </div>
     </section>
 
-    <!-- NEX-REELS TAB -->
+    <!-- WATCH REELS TAB -->
+    <section id="watchReels" class="tab-content">
+      <h2>👁️ Watch Reels</h2>
+      <p style="color: #00ff66; margin-bottom: 20px;">Browse and view all uploaded reels from users.</p>
+      <div class="filter-box">
+        <select id="reelsFilter" class="filter-select">
+          <option value="all">All Reels</option>
+          <option value="trending">Trending</option>
+          <option value="newest">Newest First</option>
+          <option value="mostLiked">Most Liked</option>
+        </select>
+        <button class="search-btn" id="refreshReelsBtn">🔄 Refresh</button>
+        <button class="search-btn" onclick="window.open('../NEXCHAT/chat.html#reels', '_blank')" style="background: #00ff66; color: #000;">🚀 Open Reels App</button>
+      </div>
+      
+      <div class="reels-stats">
+        <div class="stat-card">
+          <span class="stat-label">Total Reels</span>
+          <span id="totalReels" class="stat-value">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Total Views</span>
+          <span id="reelsViews" class="stat-value">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Total Likes</span>
+          <span id="reelsLikes" class="stat-value">0</span>
+        </div>
+      </div>
+
+      <div class="reels-feed" id="reelsFeed">
+        <div class="loading-message">Loading reels...</div>
+      </div>
+    </section>
+
+    <!-- POST REELS TAB -->
+    <section id="postReels" class="tab-content">
+      <h2>🎬 Post Reels</h2>
+      <p style="color: #00ff66; margin-bottom: 20px;">Upload and manage your own reels as admin.</p>
+      
+      <div class="upload-reels-container">
+        <div class="upload-form">
+          <div class="form-group">
+            <label>Reel Title</label>
+            <input type="text" id="adminReelTitle" placeholder="Enter reel title..." maxlength="100">
+          </div>
+
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="adminReelDescription" placeholder="Describe your reel..." maxlength="500" rows="3"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Video File</label>
+            <input type="file" id="adminVideoFile" accept="video/*">
+            <small style="color: #888;">Max 500MB - Supported: MP4, WebM, Ogg</small>
+          </div>
+
+          <div class="form-group">
+            <label>Thumbnail (Optional)</label>
+            <input type="file" id="adminVideoThumbnail" accept="image/*">
+            <small style="color: #888;">Max 5MB - Supported: JPG, PNG</small>
+          </div>
+
+          <div id="uploadPreview" style="margin: 15px 0; display: none;">
+            <div style="color: #00ff66; margin-bottom: 10px;">📹 Preview:</div>
+            <video id="adminVideoPreview" style="max-width: 300px; max-height: 400px; border: 1px solid #00ff66; border-radius: 8px;"></video>
+          </div>
+
+          <button id="publishReelBtn" class="publish-btn" style="background: #00ff66; color: #000; padding: 12px 24px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 15px;">🚀 Publish Reel</button>
+          <div id="uploadStatus" style="margin-top: 15px; padding: 10px; border-radius: 6px; display: none; text-align: center;"></div>
+        </div>
+      </div>
+
+      <div style="margin-top: 30px;">
+        <h3 style="color: #00ff66; margin-bottom: 15px;">📊 Your Reels Stats</h3>
+        <div class="admin-reels-list">
+          <div class="loading-message">Loading your reels...</div>
+        </div>
+      </div>
+    </section>
     <section id="videos" class="tab-content">
       <h2>🎬 NEX-REELS Video Monitoring</h2>
       <div class="filter-box">
@@ -228,9 +402,122 @@
           <button class="setting-btn">Download Backup</button>
         </div>
         <div class="setting-item">
+          <h3>💰 Mint Tokens</h3>
+          <p>Mint tokens directly to a user's account. Use responsibly.</p>
+          <div class="form-group">
+            <label>Recipient UID</label>
+            <input type="text" id="mintRecipientUID" placeholder="Recipient UID" class="input-field">
+          </div>
+          <div class="form-group">
+            <label>Amount</label>
+            <input type="number" id="mintAmount" placeholder="100" min="1" class="input-field">
+          </div>
+          <div class="form-group">
+            <label>Note (optional)</label>
+            <input type="text" id="mintNote" placeholder="Reason or note" class="input-field">
+          </div>
+          <div class="button-group">
+            <button id="mintTokensBtn" class="setting-btn success" style="background:#00ff66;color:#000;">🚀 Mint Tokens</button>
+          </div>
+          <div id="mintResult" style="margin-top:10px; display:none; padding:8px; border-radius:6px;"></div>
+        </div>
+        <div class="setting-item">
           <h3>Clear Cache</h3>
           <p>Clear application cache and temporary files</p>
           <button class="setting-btn danger">Clear Cache</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TOKEN MINTING TAB -->
+    <section id="tokens" class="tab-content">
+      <h2>💰 Token Minting System</h2>
+      <div class="token-minting-container">
+        <!-- Mint Tokens Form -->
+        <div class="minting-section">
+          <div class="setting-item">
+            <h3>🚀 Mint Tokens to User</h3>
+            <p style="color: #888; margin-bottom: 15px;">Mint new tokens directly to a user's account. Use responsibly.</p>
+            
+            <div class="form-group">
+              <label>Recipient UID</label>
+              <input type="text" id="mintRecipientUID" placeholder="Paste recipient UID here..." class="input-field">
+              <small style="color: #888;">The unique user ID from Firestore</small>
+            </div>
+
+            <div class="form-group">
+              <label>Token Amount</label>
+              <input type="number" id="mintAmount" placeholder="100" min="1" max="1000000" class="input-field">
+              <small style="color: #888;">Number of tokens to mint (max 1,000,000)</small>
+            </div>
+
+            <div class="form-group">
+              <label>Reason/Note (Optional)</label>
+              <textarea id="mintNote" placeholder="E.g., Bonus for event, System maintenance reward, Bug compensation..." rows="2" class="input-field" style="resize: vertical;"></textarea>
+              <small style="color: #888;">Internal note for transaction logging</small>
+            </div>
+
+            <div class="button-group">
+              <button id="mintTokensBtn" class="setting-btn success" style="background:#00ff66;color:#000;font-weight:bold;">🚀 Mint Tokens</button>
+              <button id="clearMintFormBtn" class="setting-btn" style="background:rgba(255,255,255,0.1);">🗑️ Clear</button>
+            </div>
+
+            <div id="mintResult" class="mint-result" style="margin-top:15px; display:none; padding:12px; border-radius:6px; border-left: 4px solid #00ff66;"></div>
+          </div>
+        </div>
+
+        <!-- Token Statistics -->
+        <div class="minting-section">
+          <div class="setting-item">
+            <h3>📊 Token Statistics</h3>
+            <div class="stats-grid-small">
+              <div class="stat-card-mini">
+                <div class="stat-label">Total Minted</div>
+                <div class="stat-value-small" id="totalTokensMinted">0</div>
+              </div>
+              <div class="stat-card-mini">
+                <div class="stat-label">Total Transactions</div>
+                <div class="stat-value-small" id="totalTokenTxns">0</div>
+              </div>
+              <div class="stat-card-mini">
+                <div class="stat-label">Last Mint</div>
+                <div class="stat-value-small" id="lastMintTime">Never</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transaction History -->
+        <div class="minting-section">
+          <div class="setting-item">
+            <h3>📋 Recent Token Transactions</h3>
+            <div class="transaction-filter">
+              <select id="txnFilter" class="filter-select" style="max-width: 200px;">
+                <option value="all">All Transactions</option>
+                <option value="mint">Mint Only</option>
+                <option value="transfer">Transfer Only</option>
+                <option value="burn">Burn Only</option>
+              </select>
+            </div>
+            <div class="transactions-list" id="transactionsList">
+              <div class="loading-message">Loading transactions...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Token Balance Lookup -->
+        <div class="minting-section">
+          <div class="setting-item">
+            <h3>🔍 Check User Token Balance</h3>
+            <div class="form-group">
+              <label>Search by UID or Email</label>
+              <div style="display: flex; gap: 10px;">
+                <input type="text" id="balanceLookupInput" placeholder="User UID or email..." class="input-field" style="flex: 1;">
+                <button id="lookupBalanceBtn" class="search-btn" style="padding: 10px 20px;">🔍 Lookup</button>
+              </div>
+            </div>
+            <div id="balanceResult" class="balance-result" style="margin-top: 15px; display: none; padding: 15px; border-radius: 6px; border: 1px solid #00ff66; background: rgba(0, 255, 102, 0.05);"></div>
+          </div>
         </div>
       </div>
     </section>

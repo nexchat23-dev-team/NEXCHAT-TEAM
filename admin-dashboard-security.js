@@ -715,3 +715,250 @@ window.addEventListener('load', () => {
   showSection('users');
   loadAllUsers();
 });
+
+// ======= USER DATA TRACKING & ANALYTICS =======
+
+/**
+ * Comprehensive user activity tracking system
+ * Logs all user actions, engagement metrics, and behavioral data
+ */
+
+async function trackUserActivity(userId, activityType, metadata = {}) {
+  try {
+    await addDoc(collection(db, 'userActivity'), {
+      userId: userId,
+      activityType: activityType, // 'login', 'message_sent', 'reel_uploaded', 'reel_watched', 'video_liked', etc.
+      timestamp: new Date(),
+      metadata: metadata,
+      ipAddress: sessionStorage.getItem('userIP') || 'unknown',
+      userAgent: navigator.userAgent
+    });
+  } catch (error) {
+    console.error('Error tracking activity:', error);
+  }
+}
+
+// Track user registration
+export async function trackUserRegistration(userId, email, username, registrationData = {}) {
+  try {
+    await addDoc(collection(db, 'userRegistrations'), {
+      userId: userId,
+      email: email,
+      username: username,
+      registeredAt: new Date(),
+      registrationIP: registrationData.ip || 'unknown',
+      registrationCountry: registrationData.country || 'unknown',
+      registrationCity: registrationData.city || 'unknown',
+      registrationISP: registrationData.isp || 'unknown',
+      deviceInfo: {
+        userAgent: navigator.userAgent,
+        language: navigator.language,
+        platform: navigator.platform
+      }
+    });
+  } catch (error) {
+    console.error('Error tracking registration:', error);
+  }
+}
+
+// Track messaging activity
+export async function trackMessageActivity(userId, recipientId, messageLength = 0) {
+  try {
+    await addDoc(collection(db, 'messageActivity'), {
+      userId: userId,
+      recipientId: recipientId,
+      sentAt: new Date(),
+      messageLength: messageLength,
+      tokensCost: 1 // Assuming 1 token per message
+    });
+  } catch (error) {
+    console.error('Error tracking message:', error);
+  }
+}
+
+// Track reel/video uploads
+export async function trackVideoUpload(userId, videoTitle, videoLength = 0) {
+  try {
+    await addDoc(collection(db, 'videoActivity'), {
+      userId: userId,
+      videoTitle: videoTitle,
+      uploadedAt: new Date(),
+      videoLength: videoLength,
+      activityType: 'upload'
+    });
+  } catch (error) {
+    console.error('Error tracking video upload:', error);
+  }
+}
+
+// Track video engagement (likes, views, comments)
+export async function trackVideoEngagement(userId, videoId, engagementType, videoDetails = {}) {
+  try {
+    await addDoc(collection(db, 'videoEngagement'), {
+      userId: userId,
+      videoId: videoId,
+      engagementType: engagementType, // 'view', 'like', 'comment', 'share'
+      engagedAt: new Date(),
+      videoDetails: videoDetails
+    });
+  } catch (error) {
+    console.error('Error tracking video engagement:', error);
+  }
+}
+
+// Get user statistics
+export async function getUserStats(userId) {
+  try {
+    const stats = {
+      registrationDate: null,
+      totalMessagesReceived: 0,
+      totalMessagesSent: 0,
+      totalVideosUploaded: 0,
+      totalVideoViews: 0,
+      totalVideoLikes: 0,
+      totalVideoComments: 0,
+      lastActiveAt: null,
+      accountAge: 0
+    };
+
+    // Get registration info
+    const regQuery = query(
+      collection(db, 'userRegistrations'),
+      where('userId', '==', userId)
+    );
+    const regSnap = await getDocs(regQuery);
+    if (regSnap.docs.length > 0) {
+      const regData = regSnap.docs[0].data();
+      stats.registrationDate = regData.registeredAt;
+      stats.accountAge = Math.floor((Date.now() - regData.registeredAt.toDate?.().getTime() || 0) / (1000 * 60 * 60 * 24)); // Days
+    }
+
+    // Get message stats
+    const sentQuery = query(
+      collection(db, 'messageActivity'),
+      where('userId', '==', userId)
+    );
+    const sentSnap = await getDocs(sentQuery);
+    stats.totalMessagesSent = sentSnap.docs.length;
+
+    const receivedQuery = query(
+      collection(db, 'messageActivity'),
+      where('recipientId', '==', userId)
+    );
+    const receivedSnap = await getDocs(receivedQuery);
+    stats.totalMessagesReceived = receivedSnap.docs.length;
+
+    // Get video upload stats
+    const videoUploadQuery = query(
+      collection(db, 'videoActivity'),
+      where('userId', '==', userId),
+      where('activityType', '==', 'upload')
+    );
+    const videoUploadSnap = await getDocs(videoUploadQuery);
+    stats.totalVideosUploaded = videoUploadSnap.docs.length;
+
+    // Get video engagement stats
+    const engagementQuery = query(
+      collection(db, 'videoEngagement'),
+      where('userId', '==', userId)
+    );
+    const engagementSnap = await getDocs(engagementQuery);
+    
+    engagementSnap.docs.forEach(doc => {
+      const engagement = doc.data();
+      switch(engagement.engagementType) {
+        case 'view':
+          stats.totalVideoViews++;
+          break;
+        case 'like':
+          stats.totalVideoLikes++;
+          break;
+        case 'comment':
+          stats.totalVideoComments++;
+          break;
+      }
+    });
+
+    // Get last active time
+    const activityQuery = query(
+      collection(db, 'userActivity'),
+      where('userId', '==', userId)
+    );
+    const activitySnap = await getDocs(activityQuery);
+    if (activitySnap.docs.length > 0) {
+      const activities = activitySnap.docs.map(d => d.data()).sort((a, b) => 
+        new Date(b.timestamp) - new Date(a.timestamp)
+      );
+      stats.lastActiveAt = activities[0]?.timestamp;
+    }
+
+    return stats;
+  } catch (error) {
+    console.error('Error getting user stats:', error);
+    return null;
+  }
+}
+
+// Get all users analytics
+export async function getAllUsersAnalytics() {
+  try {
+    const analytics = {
+      totalUsers: 0,
+      totalMessages: 0,
+      totalVideos: 0,
+      totalVideoViews: 0,
+      dailyNewUsers: 0,
+      activeUsersLast24h: 0,
+      topUsers: []
+    };
+
+    // Count total users
+    const usersSnap = await getDocs(collection(db, 'users'));
+    analytics.totalUsers = usersSnap.docs.length;
+
+    // Count total messages
+    const messagesSnap = await getDocs(collection(db, 'messageActivity'));
+    analytics.totalMessages = messagesSnap.docs.length;
+
+    // Count total videos
+    const videosSnap = await getDocs(collection(db, 'videoActivity'));
+    analytics.totalVideos = videosSnap.docs.length;
+
+    // Count total video views
+    const viewsSnap = await getDocs(
+      query(
+        collection(db, 'videoEngagement'),
+        where('engagementType', '==', 'view')
+      )
+    );
+    analytics.totalVideoViews = viewsSnap.docs.length;
+
+    // Count new users in last 24 hours
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const newUsersSnap = await getDocs(
+      query(
+        collection(db, 'userRegistrations'),
+        where('registeredAt', '>=', oneDayAgo)
+      )
+    );
+    analytics.dailyNewUsers = newUsersSnap.docs.length;
+
+    // Count active users in last 24 hours
+    const activeUsersSnap = await getDocs(
+      query(
+        collection(db, 'userActivity'),
+        where('timestamp', '>=', oneDayAgo)
+      )
+    );
+    const activeUserIds = new Set(activeUsersSnap.docs.map(d => d.data().userId));
+    analytics.activeUsersLast24h = activeUserIds.size;
+
+    return analytics;
+  } catch (error) {
+    console.error('Error getting analytics:', error);
+    return null;
+  }
+}
+
+// Export tracking functions for use in main app
+export { trackUserActivity, trackMessageActivity, trackVideoUpload, trackVideoEngagement };
