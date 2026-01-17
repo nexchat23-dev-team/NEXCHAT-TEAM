@@ -12,7 +12,6 @@ function checkAdminAuth() {
   const adminEmail = localStorage.getItem('adminEmail');
   const tokenTimestamp = localStorage.getItem('tokenTimestamp');
   
-  // Token expiration: 24 hours
   if (tokenTimestamp && Date.now() - parseInt(tokenTimestamp) > 24 * 60 * 60 * 1000) {
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminEmail');
@@ -233,79 +232,83 @@ function setupTabNavigation() {
   });
 }
 
-async function loadOverviewStats() {
+function loadOverviewStats() {
   try {
-    // Load users count
-    const usersSnapshot = await getDocs(collection(db, 'users'));
-    const totalUsers = usersSnapshot.size;
+    // Load users count - real-time
+    onSnapshot(collection(db, 'users'), (snapshot) => {
+      document.getElementById('totalUsers').textContent = snapshot.size;
+    });
     
-    // Load messages count
-    const messagesSnapshot = await getDocs(collection(db, 'messages'));
-    const totalMessages = messagesSnapshot.size;
+    // Load messages count - real-time
+    onSnapshot(collection(db, 'messages'), (snapshot) => {
+      document.getElementById('totalMessages').textContent = snapshot.size;
+    });
     
-    // Load videos count (NEX-REELS)
-    const videosSnapshot = await getDocs(collection(db, 'videos'));
-    const totalVideos = videosSnapshot.size;
+    // Load videos count (NEX-REELS) - real-time
+    onSnapshot(collection(db, 'videos'), (snapshot) => {
+      document.getElementById('totalVideos').textContent = snapshot.size;
+    });
     
-    // Load reports count
-    const reportsSnapshot = await getDocs(query(collection(db, 'reports'), where('status', '==', 'pending')));
-    const pendingReports = reportsSnapshot.size;
+    // Load pending reports - real-time
+    onSnapshot(query(collection(db, 'reports'), where('status', '==', 'pending')), (snapshot) => {
+      document.getElementById('pendingReports').textContent = snapshot.size;
+    });
     
-    // Load blocked users
-    const blockedSnapshot = await getDocs(query(collection(db, 'users'), where('isBlocked', '==', true)));
-    const blockedCount = blockedSnapshot.size;
+    // Load blocked users - real-time
+    onSnapshot(query(collection(db, 'users'), where('blockedUsers', '!=', [])), (snapshot) => {
+      document.getElementById('blockedCount').textContent = snapshot.size;
+    });
     
-    document.getElementById('totalUsers').textContent = totalUsers;
-    document.getElementById('totalMessages').textContent = totalMessages;
-    document.getElementById('totalVideos').textContent = totalVideos;
-    document.getElementById('pendingReports').textContent = pendingReports;
-    document.getElementById('blockedCount').textContent = blockedCount;
+    console.log('✅ Overview stats set to real-time updates');
   } catch (error) {
-    console.error('Error loading overview stats:', error);
+    console.error('Error setting up overview stats listener:', error);
   }
 }
 
-async function loadUsers() {
+function loadUsers() {
   const tbody = document.getElementById('usersTableBody');
   tbody.innerHTML = '<tr class="loading"><td colspan="6">Loading users...</td></tr>';
   
   try {
-    const usersSnapshot = await getDocs(collection(db, 'users'));
-    allUsers = [];
-    tbody.innerHTML = '';
-    
-    usersSnapshot.forEach(doc => {
-      const user = { id: doc.id, ...doc.data() };
-      allUsers.push(user);
+    // Use onSnapshot for real-time updates
+    onSnapshot(collection(db, 'users'), (snapshot) => {
+      allUsers = [];
+      tbody.innerHTML = '';
       
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>
-          <div class="user-profile">
-            <span style="font-size: 1.5rem;">👤</span>
-            <strong>${sanitizeInput(user.username || user.displayName || 'Unknown')}</strong>
-          </div>
-        </td>
-        <td>${sanitizeInput(user.username || user.displayName || 'N/A')}</td>
-        <td>${sanitizeInput(user.email || 'N/A')}</td>
-        <td><span class="status-badge ${user.isOnline ? 'online' : 'offline'}">${user.isOnline ? 'ONLINE' : 'OFFLINE'}</span></td>
-        <td>${user.createdAt ? new Date(user.createdAt.toDate?.() || user.createdAt).toLocaleDateString() : 'N/A'}</td>
-        <td>
-          <button class="action-btn view-btn" onclick="showUserModal('${doc.id}')">👁️ View</button>
-          <button class="action-btn ${user.isBlocked ? 'success-btn' : 'warn-btn'}" onclick="toggleBlockUser('${doc.id}')">
-            ${user.isBlocked ? '✅ Unblock' : '🚫 Block'}
-          </button>
-        </td>
-      `;
-      tbody.appendChild(row);
+      snapshot.forEach(doc => {
+        const user = { id: doc.id, ...doc.data() };
+        allUsers.push(user);
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>
+            <div class="user-profile">
+              <span style="font-size: 1.5rem;">${user.profilePic || user.profilePicUrl || '👤'}</span>
+              <strong>${sanitizeInput(user.username || user.name || 'Unknown')}</strong>
+            </div>
+          </td>
+          <td>${sanitizeInput(user.username || user.name || 'N/A')}</td>
+          <td>${sanitizeInput(user.email || 'N/A')}</td>
+          <td><span class="status-badge ${user.online ? 'online' : 'offline'}">${user.online ? 'ONLINE' : 'OFFLINE'}</span></td>
+          <td>${user.createdAt ? new Date(user.createdAt.toDate?.() || user.createdAt).toLocaleDateString() : 'N/A'}</td>
+          <td>
+            <button class="action-btn view-btn" onclick="showUserModal('${doc.id}')">👁️ View</button>
+            <button class="action-btn warn-btn" onclick="toggleBlockUser('${doc.id}')">🚫 Block</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+      
+      if (allUsers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No users found</td></tr>';
+      }
+    }, (error) => {
+      console.error('Error loading users:', error);
+      tbody.innerHTML = `<tr><td colspan="6" style="color: red;">Error loading users: ${error.message}</td></tr>`;
     });
-    
-    if (allUsers.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No users found</td></tr>';
-    }
   } catch (error) {
-    console.error('Error loading users:', error);
-    tbody.innerHTML = `<tr><td colspan="6" style="color: red;">Error loading users: ${error.message}</td></tr>`;
+    console.error('Error setting up users listener:', error);
+    tbody.innerHTML = `<tr><td colspan="6" style="color: red;">Error: ${error.message}</td></tr>`;
   }
 }
 
@@ -485,25 +488,32 @@ async function deleteSelectedUser() {
 }
 
 // ===== LOAD AND DISPLAY REPORTS =====
-async function loadReports() {
+function loadReports() {
   const container = document.getElementById('reportsContainer');
   container.innerHTML = '<div class="loading-message">Loading reports...</div>';
   
   try {
-    const reportsSnapshot = await getDocs(collection(db, 'reports'));
-    allReports = [];
-    container.innerHTML = '';
-    
-    reportsSnapshot.forEach(doc => {
-      const report = { id: doc.id, ...doc.data() };
-      allReports.push(report);
+    // Use onSnapshot for real-time updates
+    onSnapshot(collection(db, 'reports'), (snapshot) => {
+      allReports = [];
+      container.innerHTML = '';
+      
+      snapshot.forEach(doc => {
+        const report = { id: doc.id, ...doc.data() };
+        allReports.push(report);
+      });
+      
+      console.log('📊 Reports updated in real-time:', allReports.length);
+      
+      // Apply current filter
+      const filterValue = document.getElementById('reportFilter')?.value || 'all';
+      filterReports(filterValue);
+    }, (error) => {
+      console.error('Error loading reports:', error);
+      container.innerHTML = `<div class="loading-message" style="color: red;">Error: ${error.message}</div>`;
     });
-    
-    // Apply current filter
-    const filterValue = document.getElementById('reportFilter')?.value || 'all';
-    filterReports(filterValue);
   } catch (error) {
-    console.error('Error loading reports:', error);
+    console.error('Error setting up reports listener:', error);
     container.innerHTML = `<div class="loading-message" style="color: red;">Error: ${error.message}</div>`;
   }
 }
