@@ -159,6 +159,14 @@ window.addEventListener('load', () => {
 });
 
 function setupEventListeners() {
+  // Back to NEXCHAT
+  const backBtn = document.getElementById('backBtn');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      window.location.href = '../NEXCHAT/chat.html';
+    });
+  }
+
   // Logout
   const logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) {
@@ -2622,6 +2630,78 @@ window.markReportReviewed = markReportReviewed;
 window.banCreatorFromReport = banCreatorFromReport;
 window.dismissReport = dismissReport;
 window.loadVideoReports = loadVideoReports;
+
+// ============================================================
+// TAB NAVIGATION SETUP
+// ============================================================
+
+function setupTabNavigation() {
+  const navBtns = document.querySelectorAll('.nav-btn');
+  const tabContents = document.querySelectorAll('.tab-content');
+  
+  navBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      // Skip if it's a link (firestore status or button tester)
+      if (btn.tagName === 'A') {
+        return;
+      }
+      
+      e.preventDefault();
+      const tabName = btn.getAttribute('data-tab');
+      
+      if (!tabName) return;
+      
+      console.log(`🔄 Switching to tab: ${tabName}`);
+      
+      // Remove active class from all buttons and contents
+      navBtns.forEach(b => b.classList.remove('active'));
+      tabContents.forEach(content => content.classList.remove('active'));
+      
+      // Add active class to clicked button
+      btn.classList.add('active');
+      
+      // Show the corresponding tab content
+      const activeTab = document.getElementById(tabName);
+      if (activeTab) {
+        activeTab.classList.add('active');
+        
+        // Load data based on tab
+        if (tabName === 'users') {
+          loadUsers();
+        } else if (tabName === 'analytics') {
+          initAnalytics();
+        } else if (tabName === 'messages') {
+          loadMessages();
+        } else if (tabName === 'reports') {
+          loadReports();
+        } else if (tabName === 'blocked') {
+          loadBlockedUsers();
+        } else if (tabName === 'admins') {
+          loadAdmins();
+        } else if (tabName === 'tokens') {
+          loadTokenStatistics();
+          loadTransactionHistory();
+        } else if (tabName === 'videos') {
+          loadVideoAnalytics();
+        } else if (tabName === 'watchReels') {
+          loadAdminReels();
+        } else if (tabName === 'postReels') {
+          loadAdminPostReels();
+        } else if (tabName === 'gmail') {
+          loadGmailUsers();
+        } else if (tabName === 'groupchats') {
+          loadGroupChats();
+        }
+        
+        console.log(`✅ Tab switched to: ${tabName}`);
+      } else {
+        console.warn(`⚠️ Tab content not found for: ${tabName}`);
+      }
+    });
+  });
+  
+  console.log(`✅ Tab navigation initialized for ${navBtns.length} buttons`);
+}
 
 // ============================================================
 // BUTTON EVENT LISTENERS INITIALIZATION

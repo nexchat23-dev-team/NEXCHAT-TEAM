@@ -14,6 +14,7 @@
   <!-- Admin Header -->
   <header class="admin-header">
     <div class="header-content">
+      <button id="backBtn" class="back-to-app-btn" title="Back to NEXCHAT">← Back to NEXCHAT</button>
       <h1>☄️ NEXCHAT Admin Dashboard</h1>
       <div class="header-info">
         <span id="adminName" class="admin-user">Admin</span>
@@ -405,6 +406,12 @@
           <button class="setting-btn">Download Backup</button>
         </div>
         <div class="setting-item">
+          <h3>🤖 Security Bot</h3>
+          <p>Enable or disable the AI security bot for threat detection</p>
+          <button id="botToggle" class="setting-btn" style="background: linear-gradient(135deg, #00ff66, #00d4ff); color: #000; font-weight: bold;">🤖 Toggle Security Bot</button>
+          <p id="botStatus" style="color: #00ff66; margin-top: 10px;">Status: <span>Active</span></p>
+        </div>
+        <div class="setting-item">
           <h3>💰 Mint Tokens</h3>
           <p>Mint tokens directly to a user's account. Use responsibly.</p>
           <div class="form-group">
@@ -685,6 +692,7 @@
       <div class="action-buttons">
         <button id="markResolvedBtn" class="action-btn success-btn">✅ Mark Resolved</button>
         <button class="action-btn warn-btn" onclick="deleteReportedVideo()">🗑️ Delete Video</button>
+        <button id="blockReporterBtn" class="action-btn warn-btn">🚫 Block Reporter</button>
         <button id="blockReportedBtn" class="action-btn danger-btn">⛔ Ban Creator</button>
         <button class="action-btn" onclick="dismissReport()" style="background: rgba(255,255,255,0.08);">➖ Dismiss Report</button>
       </div>

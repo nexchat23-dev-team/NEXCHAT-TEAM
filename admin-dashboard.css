@@ -73,6 +73,28 @@ body {
   transform: translateY(-2px);
 }
 
+.back-to-app-btn {
+  background: linear-gradient(90deg, #00d4ff, #00ff66);
+  color: #000;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.3s;
+  font-family: 'Orbitron', sans-serif;
+  margin-right: auto;
+}
+
+.back-to-app-btn:hover {
+  box-shadow: 0 0 15px rgba(0, 255, 102, 0.6);
+  transform: translateY(-2px);
+}
+
+.back-to-app-btn:active {
+  transform: scale(0.95);
+}
+
 /* Navigation */
 .admin-nav {
   background: rgba(0, 0, 0, 0.3);
