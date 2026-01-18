@@ -101,6 +101,8 @@ function generateRandomPassword(length = 12) {
 // Initialize dashboard on DOM ready
 function initializeDashboard() {
   console.log('Dashboard initialization starting');
+  console.log('Current URL:', window.location.href);
+  console.log('DOM State:', document.readyState);
   
   try {
     if (!checkAdminAuth()) {
@@ -113,21 +115,33 @@ function initializeDashboard() {
     const adminNameEl = document.getElementById('adminName');
     if (adminNameEl) {
       adminNameEl.textContent = `${currentAdminName} (Admin)`;
+      console.log('✅ Admin name set to:', adminNameEl.textContent);
+    } else {
+      console.warn('⚠️ adminName element not found');
     }
     
     loadOverviewStats();
-    console.log('Overview stats loaded');
+    console.log('✅ Overview stats loaded');
     
     setupTabNavigation();
-    console.log('Tab navigation setup complete');
+    console.log('✅ Tab navigation setup complete');
     
     setupEventListeners();
-    console.log('Event listeners setup complete');
+    console.log('✅ Event listeners setup complete');
     
     loadUsers();
-    console.log('Users loaded');
+    console.log('✅ Users loaded');
+    
+    // Verify key buttons exist
+    console.log('=== Button Verification ===');
+    console.log('mintTokensBtn:', document.getElementById('mintTokensBtn') ? '✅ Found' : '❌ Not found');
+    console.log('settingsMintTokensBtn:', document.getElementById('settingsMintTokensBtn') ? '✅ Found' : '❌ Not found');
+    console.log('sendTokensBtn:', document.getElementById('sendTokensBtn') ? '✅ Found' : '❌ Not found');
+    console.log('createAdminBtn:', document.getElementById('createAdminBtn') ? '✅ Found' : '❌ Not found');
+    console.log('logoutBtn:', document.getElementById('logoutBtn') ? '✅ Found' : '❌ Not found');
   } catch (error) {
     console.error('Fatal error during dashboard initialization:', error);
+    console.error('Error stack:', error.stack);
     showNotification(`Error initializing dashboard: ${error.message}`, 'error');
   }
 }
@@ -252,10 +266,12 @@ function setupEventListeners() {
     btn.addEventListener('click', handleSettingsActions);
   });
 
-  // Mint tokens button
+  // Mint tokens button (in tokens tab)
   const mintBtn = document.getElementById('mintTokensBtn');
   if (mintBtn) {
-    mintBtn.addEventListener('click', async () => {
+    mintBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       try {
         mintBtn.disabled = true;
         mintBtn.textContent = '⏳ Minting...';
@@ -265,11 +281,36 @@ function setupEventListeners() {
         mintBtn.textContent = '🚀 Mint Tokens';
       }
     });
+    console.log('✅ mintTokensBtn event listener attached');
+  } else {
+    console.warn('⚠️ mintTokensBtn not found');
+  }
+
+  // Settings mint tokens button
+  const settingsMintBtn = document.getElementById('settingsMintTokensBtn');
+  if (settingsMintBtn) {
+    settingsMintBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        settingsMintBtn.disabled = true;
+        settingsMintBtn.textContent = '⏳ Minting...';
+        await mintTokensFromSettings();
+      } finally {
+        settingsMintBtn.disabled = false;
+        settingsMintBtn.textContent = '🚀 Mint Tokens';
+      }
+    });
+    console.log('✅ settingsMintTokensBtn event listener attached');
+  } else {
+    console.warn('⚠️ settingsMintTokensBtn not found');
   }
 
   const sendBtn = document.getElementById('sendTokensBtn');
   if (sendBtn) {
-    sendBtn.addEventListener('click', async () => {
+    sendBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       try {
         sendBtn.disabled = true;
         sendBtn.textContent = '⏳ Sending...';
@@ -279,17 +320,42 @@ function setupEventListeners() {
         sendBtn.textContent = '💸 Send Tokens';
       }
     });
+    console.log('✅ sendTokensBtn event listener attached');
+  } else {
+    console.warn('⚠️ sendTokensBtn not found');
   }
 
   const clearSendBtn = document.getElementById('clearSendFormBtn');
   if (clearSendBtn) {
-    clearSendBtn.addEventListener('click', () => {
+    clearSendBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       document.getElementById('sendFromUID').value = '';
       document.getElementById('sendToUID').value = '';
       document.getElementById('sendAmount').value = '';
       document.getElementById('sendNote').value = '';
       document.getElementById('sendResult').style.display = 'none';
+      console.log('✅ Clear send form clicked');
     });
+    console.log('✅ clearSendFormBtn event listener attached');
+  } else {
+    console.warn('⚠️ clearSendFormBtn not found');
+  }
+
+  const clearMintBtn = document.getElementById('clearMintFormBtn');
+  if (clearMintBtn) {
+    clearMintBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      document.getElementById('mintRecipientUID').value = '';
+      document.getElementById('mintAmount').value = '';
+      document.getElementById('mintNote').value = '';
+      document.getElementById('mintResult').style.display = 'none';
+      console.log('✅ Clear mint form clicked');
+    });
+    console.log('✅ clearMintFormBtn event listener attached');
+  } else {
+    console.warn('⚠️ clearMintFormBtn not found');
   }
 }
 
@@ -344,6 +410,62 @@ async function mintTokens() {
     document.getElementById('mintNote').value = '';
   } catch (error) {
     console.error('Error minting tokens:', error);
+    showNotification('Error minting tokens: ' + error.message, 'error');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Error: ' + error.message; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+  }
+}
+
+// Mint tokens from settings tab
+async function mintTokensFromSettings() {
+  const recipientUID = (document.getElementById('settingsMintRecipientUID')?.value || '').trim();
+  const amountRaw = document.getElementById('settingsMintAmount')?.value;
+  const note = (document.getElementById('settingsMintNote')?.value || '').trim();
+  const resultDiv = document.getElementById('settingsMintResult');
+
+  if (!recipientUID) {
+    showNotification('Recipient UID is required', 'error');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Recipient UID is required'; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+    return;
+  }
+
+  const amount = parseInt(amountRaw, 10);
+  if (!amount || amount <= 0) {
+    showNotification('Enter a valid token amount', 'error');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Enter a valid token amount'; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+    return;
+  }
+
+  try {
+    const userRef = doc(db, 'users', recipientUID);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+      showNotification('Recipient user not found', 'error');
+      if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Recipient user not found'; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
+      return;
+    }
+
+    // Update user's token balance atomically
+    await updateDoc(userRef, { tokens: increment(amount) });
+
+    // Log the transaction
+    await addDoc(collection(db, 'tokenTransactions'), {
+      admin: currentAdminName || localStorage.getItem('adminEmail') || 'admin',
+      recipientUID,
+      amount,
+      note: note || null,
+      type: 'mint',
+      createdAt: serverTimestamp()
+    });
+
+    showNotification(`✅ Minted ${amount} tokens to ${recipientUID}`, 'success');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = `✅ Minted ${amount} tokens to ${recipientUID}`; resultDiv.style.background = 'rgba(76,175,80,0.06)'; }
+
+    // Clear inputs
+    document.getElementById('settingsMintRecipientUID').value = '';
+    document.getElementById('settingsMintAmount').value = '';
+    document.getElementById('settingsMintNote').value = '';
+  } catch (error) {
+    console.error('Error minting tokens from settings:', error);
     showNotification('Error minting tokens: ' + error.message, 'error');
     if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.textContent = 'Error: ' + error.message; resultDiv.style.background = 'rgba(244,67,54,0.06)'; }
   }
@@ -484,6 +606,7 @@ function setupTabNavigation() {
         if (tabName === 'postReels') initPostReels();
         if (tabName === 'analytics') initAnalytics();
         if (tabName === 'tokens') initTokenMinting();
+        if (tabName === 'groupchats') loadGroupChats();
       } catch (error) {
         console.error(`Error loading tab ${tabName}:`, error);
       }
@@ -1099,15 +1222,238 @@ async function deleteAdmin(adminId) {
   }
 }
 
+// ===== GROUP CHATS MANAGEMENT =====
+function loadGroupChats() {
+  try {
+    // Real-time listener for groups statistics
+    onSnapshot(collection(db, 'groups'), async (groupsSnapshot) => {
+      onSnapshot(collection(db, 'groupMessages'), (messagesSnapshot) => {
+        onSnapshot(collection(db, 'groupPolls'), (pollsSnapshot) => {
+          
+          // Update statistics in real-time
+          document.getElementById('totalGroups').textContent = groupsSnapshot.size;
+          document.getElementById('totalGroupMessages').textContent = messagesSnapshot.size;
+          document.getElementById('totalPolls').textContent = pollsSnapshot.size;
+    
+          
+          // Render all groups
+          const groupsList = document.getElementById('groupsList');
+          groupsList.innerHTML = '';
+          
+          for (const groupDoc of groupsSnapshot.docs) {
+            const group = groupDoc.data();
+            const groupId = groupDoc.id;
+            const memberCount = group.members ? group.members.length : 0;
+            const messageCount = messagesSnapshot.docs.filter(doc => doc.data().groupId === groupId).length;
+            const pollCount = pollsSnapshot.docs.filter(doc => doc.data().groupId === groupId).length;
+            
+            const createdDate = group.createdAt ? new Date(group.createdAt.toDate?.() || group.createdAt).toLocaleDateString() : 'Unknown';
+            const lastMessageDate = group.lastMessageTime ? new Date(group.lastMessageTime.toDate?.() || group.lastMessageTime).toLocaleString() : 'No messages';
+            
+            const card = document.createElement('div');
+            card.className = 'group-card';
+            card.style.cssText = `
+              background: #1a1a1a;
+              border: 1px solid #00d4ff;
+              border-radius: 10px;
+              padding: 15px;
+              margin-bottom: 15px;
+              cursor: pointer;
+              transition: all 0.3s;
+              animation: slideIn 0.3s ease;
+            `;
+            
+            card.innerHTML = `
+              <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                  <h3 style="color: #00ff66; margin: 0 0 10px 0;">👥 ${sanitizeInput(group.name || 'Unnamed Group')}</h3>
+                  <p style="color: #00d4ff; margin: 5px 0; font-size: 13px;">
+                    <strong>Group ID:</strong> ${groupId.substring(0, 20)}...
+                  </p>
+                  <p style="color: #888; margin: 5px 0; font-size: 13px;">
+                    <strong>Created:</strong> ${createdDate}
+                  </p>
+                  <p style="color: #888; margin: 5px 0; font-size: 13px;">
+                    <strong>Last Activity:</strong> ${lastMessageDate}
+                  </p>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                  <div style="background: #00d4ff30; padding: 10px; border-radius: 6px; text-align: center;">
+                    <div style="color: #00d4ff; font-weight: 700; font-size: 18px;">${memberCount}</div>
+                    <div style="color: #888; font-size: 11px;">Members</div>
+                  </div>
+                  <div style="background: #ff960030; padding: 10px; border-radius: 6px; text-align: center;">
+                    <div style="color: #ff9600; font-weight: 700; font-size: 18px;">${messageCount}</div>
+                    <div style="color: #888; font-size: 11px;">Messages</div>
+                  </div>
+                  <div style="background: #00ff6630; padding: 10px; border-radius: 6px; text-align: center;">
+                    <div style="color: #00ff66; font-weight: 700; font-size: 18px;">${pollCount}</div>
+                    <div style="color: #888; font-size: 11px;">Polls</div>
+                  </div>
+                  <div style="background: #ff666630; padding: 10px; border-radius: 6px; text-align: center;">
+                    <div style="color: #ff6666; font-weight: 700; font-size: 18px;">${group.suspendedMembers ? group.suspendedMembers.length : 0}</div>
+                    <div style="color: #888; font-size: 11px;">Suspended</div>
+                  </div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 15px;">
+                <button onclick="viewGroupDetails('${groupId}')" style="
+                  background: #00d4ff;
+                  color: #000;
+                  border: none;
+                  padding: 8px;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-weight: 600;
+                  transition: all 0.2s;
+                ">👁️ View Details</button>
+                <button onclick="viewGroupMembers('${groupId}')" style="
+                  background: #00ff66;
+                  color: #000;
+                  border: none;
+                  padding: 8px;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-weight: 600;
+                  transition: all 0.2s;
+                ">👥 Members</button>
+                <button onclick="deleteGroupChat('${groupId}')" style="
+                  background: #ff6666;
+                  color: #fff;
+                  border: none;
+                  padding: 8px;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-weight: 600;
+                  transition: all 0.2s;
+                ">🗑️ Delete</button>
+              </div>
+            `;
+            
+            groupsList.appendChild(card);
+          }
+          
+          if (groupsSnapshot.empty) {
+            groupsList.innerHTML = '<p style="text-align: center; color: #888;">No groups found</p>';
+          }
+          
+          // Search functionality (setup once)
+          const searchInput = document.getElementById('groupSearchInput');
+          if (searchInput && !searchInput.hasListener) {
+            searchInput.hasListener = true;
+            searchInput.addEventListener('input', (e) => {
+              const searchTerm = e.target.value.toLowerCase();
+              document.querySelectorAll('.group-card').forEach(card => {
+                const groupName = card.textContent.toLowerCase();
+                card.style.display = groupName.includes(searchTerm) ? 'block' : 'none';
+              });
+            });
+          }
+        }); // Close pollsSnapshot
+      }); // Close messagesSnapshot
+    }); // Close groupsSnapshot
+    
+  } catch (error) {
+    console.error('Error loading group chats:', error);
+    document.getElementById('groupsList').innerHTML = `<p style="color: #ff6b6b;">Error: ${error.message}</p>`;
+  }
+}
+
+async function viewGroupDetails(groupId) {
+  try {
+    const groupDoc = await getDoc(doc(db, 'groups', groupId));
+    if (!groupDoc.exists()) {
+      showNotification('❌ Group not found', 'error');
+      return;
+    }
+    
+    const group = groupDoc.data();
+    alert(`📊 Group Details:\n\nName: ${group.name || 'Unnamed'}\nDescription: ${group.description || 'None'}\nMembers: ${group.members ? group.members.length : 0}\nCreated: ${group.createdAt ? new Date(group.createdAt.toDate?.() || group.createdAt).toLocaleString() : 'Unknown'}`);
+  } catch (error) {
+    showNotification(`Error: ${error.message}`, 'error');
+  }
+}
+
+async function viewGroupMembers(groupId) {
+  try {
+    const groupDoc = await getDoc(doc(db, 'groups', groupId));
+    if (!groupDoc.exists()) {
+      showNotification('❌ Group not found', 'error');
+      return;
+    }
+    
+    const group = groupDoc.data();
+    const members = group.members || [];
+    const admin = group.admin || 'Unknown';
+    
+    let memberList = `👥 Group Members (${members.length}):\n\n`;
+    memberList += `👑 Admin: ${admin}\n\n`;
+    
+    for (const memberId of members) {
+      const userDoc = await getDoc(doc(db, 'users', memberId));
+      if (userDoc.exists()) {
+        const user = userDoc.data();
+        const isSuspended = group.suspendedMembers && group.suspendedMembers.includes(memberId);
+        memberList += `${isSuspended ? '🔒' : '✓'} ${user.username || user.email || 'Unknown'}\n`;
+      }
+    }
+    
+    alert(memberList);
+  } catch (error) {
+    showNotification(`Error: ${error.message}`, 'error');
+  }
+}
+
+async function deleteGroupChat(groupId) {
+  if (!confirm('⚠️ Are you sure you want to delete this group chat? This action cannot be undone.')) {
+    return;
+  }
+  
+  try {
+    // Delete group document
+    await deleteDoc(doc(db, 'groups', groupId));
+    
+    // Delete all group messages
+    const messagesSnapshot = await getDocs(query(collection(db, 'groupMessages'), where('groupId', '==', groupId)));
+    for (const msgDoc of messagesSnapshot.docs) {
+      await deleteDoc(msgDoc.ref);
+    }
+    
+    // Delete all group polls
+    const pollsSnapshot = await getDocs(query(collection(db, 'groupPolls'), where('groupId', '==', groupId)));
+    for (const pollDoc of pollsSnapshot.docs) {
+      await deleteDoc(pollDoc.ref);
+    }
+    
+    showNotification('✅ Group chat deleted successfully', 'success');
+    loadGroupChats();
+  } catch (error) {
+    showNotification(`❌ Error: ${error.message}`, 'error');
+  }
+}
+
 // ===== SETTINGS ACTIONS =====
 function handleSettingsActions(e) {
   const buttonText = e.target.textContent.trim();
+  const buttonId = e.target.id;
+  
+  console.log('handleSettingsActions called for button:', buttonId, 'text:', buttonText);
+  
+  // Skip if this is a specific action button that should be handled elsewhere
+  if (buttonId.includes('Mint') || buttonId.includes('Send') || buttonId.includes('Clear') || 
+      buttonId.includes('Generate') || buttonId.includes('Copy') || buttonId.includes('Create') ||
+      buttonId.includes('Generate') || buttonId.includes('Download')) {
+    console.log('Skipping handleSettingsActions for button:', buttonId);
+    return;
+  }
   
   if (buttonText.includes('System Logs')) {
+    console.log('System Logs button clicked');
     showNotification('📋 System logs loading...', 'info');
     alert('System Logs:\n\n- Dashboard accessed: ' + new Date().toLocaleString() + '\n- All systems operational\n- Last backup: 24 hours ago\n- Active connections: 5');
   }
   else if (buttonText.includes('Backup')) {
+    console.log('Backup button clicked');
     showNotification('💾 Generating backup...', 'info');
     setTimeout(() => {
       // Simulate backup download
@@ -1130,11 +1476,14 @@ function handleSettingsActions(e) {
     }, 1000);
   }
   else if (buttonText.includes('Clear Cache')) {
+    console.log('Clear Cache button clicked');
     if (confirm('Are you sure you want to clear the cache? This may affect performance temporarily.')) {
       localStorage.clear();
       sessionStorage.clear();
       showNotification('✅ Cache cleared successfully', 'success');
     }
+  } else {
+    console.log('Unhandled settings action:', buttonText);
   }
 }
 
@@ -2273,3 +2622,232 @@ window.markReportReviewed = markReportReviewed;
 window.banCreatorFromReport = banCreatorFromReport;
 window.dismissReport = dismissReport;
 window.loadVideoReports = loadVideoReports;
+
+// ============================================================
+// BUTTON EVENT LISTENERS INITIALIZATION
+// ============================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('🎯 Initializing Admin Dashboard Button Event Listeners...');
+
+  // Navigation Buttons
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      console.log('✅ Logout button clicked');
+      if (confirm('Are you sure you want to logout?')) {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminEmail');
+        localStorage.removeItem('tokenTimestamp');
+        window.location.href = 'index.html';
+      }
+    });
+    console.log('✅ logoutBtn listener attached');
+  } else {
+    console.warn('⚠️ logoutBtn not found');
+  }
+
+  // Admin Management Buttons
+  const generatePasswordBtn = document.getElementById('generatePasswordBtn');
+  if (generatePasswordBtn) {
+    generatePasswordBtn.addEventListener('click', () => {
+      console.log('✅ Generate Password button clicked');
+      const password = generateRandomPassword();
+      document.getElementById('newAdminPassword').value = password;
+      const displayDiv = document.getElementById('generatedPassword');
+      if (displayDiv) {
+        displayDiv.style.display = 'block';
+        document.getElementById('passwordText').textContent = password;
+      }
+      showNotification('✅ Password generated successfully', 'success');
+    });
+    console.log('✅ generatePasswordBtn listener attached');
+  } else {
+    console.warn('⚠️ generatePasswordBtn not found');
+  }
+
+  const copyPasswordBtn = document.getElementById('copyPasswordBtn');
+  if (copyPasswordBtn) {
+    copyPasswordBtn.addEventListener('click', () => {
+      console.log('✅ Copy Password button clicked');
+      const password = document.getElementById('newAdminPassword').value;
+      if (password) {
+        navigator.clipboard.writeText(password).then(() => {
+          showNotification('✅ Password copied to clipboard!', 'success');
+        }).catch(() => {
+          showNotification('❌ Failed to copy password', 'error');
+        });
+      } else {
+        showNotification('❌ No password to copy', 'error');
+      }
+    });
+    console.log('✅ copyPasswordBtn listener attached');
+  } else {
+    console.warn('⚠️ copyPasswordBtn not found');
+  }
+
+  const createAdminBtn = document.getElementById('createAdminBtn');
+  if (createAdminBtn) {
+    createAdminBtn.addEventListener('click', () => {
+      console.log('✅ Create Admin button clicked');
+      createNewAdmin();
+    });
+    console.log('✅ createAdminBtn listener attached');
+  } else {
+    console.warn('⚠️ createAdminBtn not found');
+  }
+
+  // User Action Buttons
+  const viewUserBtn = document.getElementById('viewUserBtn');
+  if (viewUserBtn) {
+    viewUserBtn.addEventListener('click', () => {
+      console.log('✅ View User button clicked');
+      viewUserProfile();
+    });
+    console.log('✅ viewUserBtn listener attached');
+  } else {
+    console.warn('⚠️ viewUserBtn not found');
+  }
+
+  const blockUserBtn = document.getElementById('blockUserBtn');
+  if (blockUserBtn) {
+    blockUserBtn.addEventListener('click', () => {
+      console.log('✅ Block User button clicked');
+      blockSelectedUser();
+    });
+    console.log('✅ blockUserBtn listener attached');
+  } else {
+    console.warn('⚠️ blockUserBtn not found');
+  }
+
+  const unblockUserBtn = document.getElementById('unblockUserBtn');
+  if (unblockUserBtn) {
+    unblockUserBtn.addEventListener('click', () => {
+      console.log('✅ Unblock User button clicked');
+      unblockSelectedUser();
+    });
+    console.log('✅ unblockUserBtn listener attached');
+  } else {
+    console.warn('⚠️ unblockUserBtn not found');
+  }
+
+  const deleteUserBtn = document.getElementById('deleteUserBtn');
+  if (deleteUserBtn) {
+    deleteUserBtn.addEventListener('click', () => {
+      console.log('✅ Delete User button clicked');
+      deleteSelectedUser();
+    });
+    console.log('✅ deleteUserBtn listener attached');
+  } else {
+    console.warn('⚠️ deleteUserBtn not found');
+  }
+
+  // Report Action Buttons
+  const markResolvedBtn = document.getElementById('markResolvedBtn');
+  if (markResolvedBtn) {
+    markResolvedBtn.addEventListener('click', () => {
+      console.log('✅ Mark Resolved button clicked');
+      if (selectedReportId) {
+        handleReport(selectedReportId, 'resolved');
+      }
+    });
+    console.log('✅ markResolvedBtn listener attached');
+  } else {
+    console.warn('⚠️ markResolvedBtn not found');
+  }
+
+  const blockReporterBtn = document.getElementById('blockReporterBtn');
+  if (blockReporterBtn) {
+    blockReporterBtn.addEventListener('click', () => {
+      console.log('✅ Block Reporter button clicked');
+      blockReporter();
+    });
+    console.log('✅ blockReporterBtn listener attached');
+  } else {
+    console.warn('⚠️ blockReporterBtn not found');
+  }
+
+  const blockReportedBtn = document.getElementById('blockReportedBtn');
+  if (blockReportedBtn) {
+    blockReportedBtn.addEventListener('click', () => {
+      console.log('✅ Block Reported User button clicked');
+      blockReportedUser();
+    });
+    console.log('✅ blockReportedBtn listener attached');
+  } else {
+    console.warn('⚠️ blockReportedBtn not found');
+  }
+
+  // Token Management Buttons
+  const mintTokensBtn = document.getElementById('mintTokensBtn');
+  if (mintTokensBtn) {
+    mintTokensBtn.addEventListener('click', () => {
+      console.log('✅ Mint Tokens button clicked');
+      mintTokens();
+    });
+    console.log('✅ mintTokensBtn listener attached');
+  } else {
+    console.warn('⚠️ mintTokensBtn not found');
+  }
+
+  const settingsMintTokensBtn = document.getElementById('settingsMintTokensBtn');
+  if (settingsMintTokensBtn) {
+    settingsMintTokensBtn.addEventListener('click', () => {
+      console.log('✅ Settings Mint Tokens button clicked');
+      mintTokensFromSettings();
+    });
+    console.log('✅ settingsMintTokensBtn listener attached');
+  } else {
+    console.warn('⚠️ settingsMintTokensBtn not found');
+  }
+
+  const sendTokensBtn = document.getElementById('sendTokensBtn');
+  if (sendTokensBtn) {
+    sendTokensBtn.addEventListener('click', () => {
+      console.log('✅ Send Tokens button clicked');
+      sendTokens();
+    });
+    console.log('✅ sendTokensBtn listener attached');
+  } else {
+    console.warn('⚠️ sendTokensBtn not found');
+  }
+
+  const clearSendFormBtn = document.getElementById('clearSendFormBtn');
+  if (clearSendFormBtn) {
+    clearSendFormBtn.addEventListener('click', () => {
+      console.log('✅ Clear Send Form button clicked');
+      document.getElementById('sendFromUID').value = '';
+      document.getElementById('sendToUID').value = '';
+      document.getElementById('sendAmount').value = '';
+      document.getElementById('sendNote').value = '';
+      document.getElementById('sendResult').style.display = 'none';
+    });
+    console.log('✅ clearSendFormBtn listener attached');
+  } else {
+    console.warn('⚠️ clearSendFormBtn not found');
+  }
+
+  const clearMintFormBtn = document.getElementById('clearMintFormBtn');
+  if (clearMintFormBtn) {
+    clearMintFormBtn.addEventListener('click', () => {
+      console.log('✅ Clear Mint Form button clicked');
+      document.getElementById('mintRecipientUID').value = '';
+      document.getElementById('mintAmount').value = '';
+      document.getElementById('mintNote').value = '';
+      document.getElementById('mintResult').style.display = 'none';
+    });
+    console.log('✅ clearMintFormBtn listener attached');
+  } else {
+    console.warn('⚠️ clearMintFormBtn not found');
+  }
+
+  // Tab Navigation
+  setupTabNavigation();
+  console.log('✅ Tab navigation setup complete');
+
+  // Load initial data
+  loadOverviewStats();
+  console.log('✅ Overview stats loaded');
+
+  console.log('✨ Admin Dashboard fully initialized!');
+});

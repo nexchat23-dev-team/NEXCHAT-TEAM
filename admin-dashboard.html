@@ -35,8 +35,11 @@
     <button class="nav-btn" data-tab="reports">📋 Reports</button>
     <button class="nav-btn" data-tab="blocked">🚫 Blocked Users</button>
     <button class="nav-btn" data-tab="admins">👑 Manage Admins</button>
+    <button class="nav-btn" data-tab="groupchats">👥 Group Chats</button>
     <button class="nav-btn" data-tab="tokens">💰 Token Minting</button>
     <button class="nav-btn" data-tab="settings">⚙️ Settings</button>
+    <a href="firestore_status.html" class="nav-btn" style="text-decoration: none; display: inline-block; background: linear-gradient(135deg, #ff9600, #ff6666); border: 2px solid #ff9600;">🔥 Firestore Status</a>
+    <a href="button_tester.html" class="nav-btn" style="text-decoration: none; display: inline-block; background: linear-gradient(135deg, #00d4ff, #00ff66); border: 2px solid #00d4ff;">🧪 Button Tester</a>
   </nav>
 
   <!-- Admin Content -->
@@ -406,20 +409,20 @@
           <p>Mint tokens directly to a user's account. Use responsibly.</p>
           <div class="form-group">
             <label>Recipient UID</label>
-            <input type="text" id="mintRecipientUID" placeholder="Recipient UID" class="input-field">
+            <input type="text" id="settingsMintRecipientUID" placeholder="Recipient UID" class="input-field">
           </div>
           <div class="form-group">
             <label>Amount</label>
-            <input type="number" id="mintAmount" placeholder="100" min="1" class="input-field">
+            <input type="number" id="settingsMintAmount" placeholder="100" min="1" class="input-field">
           </div>
           <div class="form-group">
             <label>Note (optional)</label>
-            <input type="text" id="mintNote" placeholder="Reason or note" class="input-field">
+            <input type="text" id="settingsMintNote" placeholder="Reason or note" class="input-field">
           </div>
           <div class="button-group">
-            <button id="mintTokensBtn" class="setting-btn success" style="background:#00ff66;color:#000;">🚀 Mint Tokens</button>
+            <button id="settingsMintTokensBtn" class="setting-btn success" style="background:#00ff66;color:#000;">🚀 Mint Tokens</button>
           </div>
-          <div id="mintResult" style="margin-top:10px; display:none; padding:8px; border-radius:6px;"></div>
+          <div id="settingsMintResult" style="margin-top:10px; display:none; padding:8px; border-radius:6px;"></div>
         </div>
         <div class="setting-item">
           <h3>Clear Cache</h3>
@@ -599,6 +602,51 @@
         <h3>Current Admin Accounts</h3>
         <div id="adminsList" class="admins-list">
           <p>Loading admins...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- GROUP CHATS TAB -->
+    <section id="groupchats" class="tab-content">
+      <h2>👥 Group Chats Management</h2>
+      
+      <div class="settings-section">
+        <div class="setting-item">
+          <h3>📊 Group Statistics</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+            <div class="stat-card">
+              <div class="stat-icon">👥</div>
+              <div class="stat-info">
+                <span class="stat-label">Total Groups</span>
+                <span id="totalGroups" class="stat-value">0</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">💬</div>
+              <div class="stat-info">
+                <span class="stat-label">Total Group Messages</span>
+                <span id="totalGroupMessages" class="stat-value">0</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">📊</div>
+              <div class="stat-info">
+                <span class="stat-label">Active Polls</span>
+                <span id="totalPolls" class="stat-value">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Groups List -->
+      <div class="settings-section">
+        <h3>All Groups</h3>
+        <div style="margin-bottom: 20px;">
+          <input type="text" id="groupSearchInput" placeholder="🔍 Search groups..." class="input-field">
+        </div>
+        <div id="groupsList" class="groups-list">
+          <p style="text-align: center; color: #888;">Loading groups...</p>
         </div>
       </div>
     </section>

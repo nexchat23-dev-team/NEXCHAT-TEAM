@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔥 Firestore Status Monitor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0a0e27;
+      color: #fff;
+      font-family: 'Orbitron', monospace;
+      overflow-x: hidden;
+    }
+
+    .firestore-monitor {
+      padding: 20px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: linear-gradient(135deg, #1a1a3e 0%, #16213e 100%);
+      border: 2px solid #00ff66;
+      border-radius: 12px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      color: #00ff66;
+      text-shadow: 0 0 10px #00ff66;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #00ff66;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      background: #00ff66;
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+      font-family: 'Orbitron', monospace;
+    }
+
+    .btn:hover {
+      background: #00d4ff;
+      transform: scale(1.05);
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 2px solid #00d4ff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+    }
+
+    .card h3 {
+      color: #00ff66;
+      margin-bottom: 15px;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px;
+      background: rgba(0, 255, 102, 0.05);
+      margin: 8px 0;
+      border-radius: 6px;
+      border-left: 3px solid #00ff66;
+    }
+
+    .stat-label {
+      color: #00d4ff;
+    }
+
+    .stat-value {
+      color: #00ff66;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .collection-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .collection-badge {
+      background: linear-gradient(135deg, #00ff6633 0%, #00d4ff33 100%);
+      border: 1px solid #00ff66;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .collection-badge:hover {
+      background: linear-gradient(135deg, #00ff6650 0%, #00d4ff50 100%);
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(0, 255, 102, 0.3);
+    }
+
+    .collection-name {
+      color: #00ff66;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .collection-count {
+      color: #00d4ff;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .logs-container {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 2px solid #ff9600;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 30px;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .logs-container h3 {
+      color: #ff9600;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+
+    .log-entry {
+      padding: 10px;
+      margin: 5px 0;
+      background: rgba(255, 150, 0, 0.05);
+      border-left: 3px solid #ff9600;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .log-time {
+      color: #00d4ff;
+      font-weight: 600;
+      min-width: 120px;
+    }
+
+    .log-action {
+      color: #00ff66;
+      flex: 1;
+      margin-left: 15px;
+    }
+
+    .log-count {
+      color: #ff9600;
+      font-weight: 700;
+      background: rgba(255, 150, 0, 0.2);
+      padding: 5px 10px;
+      border-radius: 4px;
+    }
+
+    .activity-stream {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 2px solid #00ff66;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+
+    .activity-stream h3 {
+      color: #00ff66;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+
+    .activity-item {
+      padding: 12px;
+      margin: 8px 0;
+      background: rgba(0, 255, 102, 0.05);
+      border-left: 3px solid #00ff66;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .activity-text {
+      color: #ddd;
+      font-size: 14px;
+    }
+
+    .activity-time {
+      color: #00d4ff;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .chart-container {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 2px solid #00d4ff;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+
+    .chart-container h3 {
+      color: #00d4ff;
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 15px;
+      height: 250px;
+      margin-bottom: 15px;
+    }
+
+    .bar {
+      flex: 1;
+      background: linear-gradient(180deg, #00ff66 0%, #00d4ff 100%);
+      border-radius: 6px 6px 0 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      position: relative;
+      transition: all 0.3s;
+      cursor: pointer;
+      min-height: 30px;
+    }
+
+    .bar:hover {
+      filter: brightness(1.2);
+    }
+
+    .bar-label {
+      position: absolute;
+      bottom: -25px;
+      color: #00d4ff;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .bar-value {
+      color: #000;
+      font-weight: 700;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+
+    .refresh-time {
+      text-align: right;
+      color: #00d4ff;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .warning {
+      background: rgba(255, 150, 0, 0.1);
+      border: 2px solid #ff9600;
+    }
+
+    .error {
+      background: rgba(255, 102, 102, 0.1);
+      border: 2px solid #ff6666;
+    }
+
+    .success {
+      background: rgba(0, 255, 102, 0.1);
+      border: 2px solid #00ff66;
+    }
+
+    .scrollbar-custom::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .scrollbar-custom::-webkit-scrollbar-track {
+      background: rgba(0, 255, 102, 0.05);
+    }
+
+    .scrollbar-custom::-webkit-scrollbar-thumb {
+      background: #00ff66;
+      border-radius: 4px;
+    }
+
+    .back-btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background: #00d4ff;
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      margin-bottom: 20px;
+      transition: all 0.3s;
+      font-family: 'Orbitron', monospace;
+    }
+
+    .back-btn:hover {
+      background: #00ff66;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+
+      .header {
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="firestore-monitor">
+    <button class="back-btn" onclick="window.location.href='admin-dashboard.html'">← Back to Dashboard</button>
+
+    <div class="header">
+      <h1>🔥 Firestore Real-Time Status Monitor</h1>
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span>Live Connection</span>
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="container">
+      <div class="card">
+        <h3>📊 Database Overview</h3>
+        <div class="stat-item">
+          <span class="stat-label">Total Collections</span>
+          <span class="stat-value" id="totalCollections">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Total Documents</span>
+          <span class="stat-value" id="totalDocuments">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Active Listeners</span>
+          <span class="stat-value" id="activeListeners">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Last Update</span>
+          <span class="stat-value" id="lastUpdate">--:--:--</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>👥 Users</h3>
+        <div class="stat-item">
+          <span class="stat-label">Nex Total Users</span>
+          <span class="stat-value" id="userCount">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Gmail Users</span>
+          <span class="stat-value" id="gmailCount">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Premium Users</span>
+          <span class="stat-value" id="premiumCount">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Blocked Users</span>
+          <span class="stat-value" id="blockedCount">0</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>💬 Messages</h3>
+        <div class="stat-item">
+          <span class="stat-label">Direct Messages</span>
+          <span class="stat-value" id="messageCount">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Group Messages</span>
+          <span class="stat-value" id="groupMessageCount">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Total Messages</span>
+          <span class="stat-value" id="totalMessages">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Today's Messages</span>
+          <span class="stat-value" id="todayMessages">0</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>👥 Groups</h3>
+        <div class="stat-item">
+          <span class="stat-label">Total Groups</span>
+          <span class="stat-value" id="groupCount">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Active Groups</span>
+          <span class="stat-value" id="activeGroups">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Group Members</span>
+          <span class="stat-value" id="totalMembers">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Active Polls</span>
+          <span class="stat-value" id="pollCount">0</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>🎬 Content</h3>
+        <div class="stat-item">
+          <span class="stat-label">Videos (NEX-REELS)</span>
+          <span class="stat-value" id="videoCount">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Total Likes</span>
+          <span class="stat-value" id="likeCount">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Total Comments</span>
+          <span class="stat-value" id="commentCount">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Reports</span>
+          <span class="stat-value" id="reportCount">0</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>💰 Tokens</h3>
+        <div class="stat-item">
+          <span class="stat-label">Total Tokens Minted</span>
+          <span class="stat-value" id="totalTokens">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Average Tokens/User</span>
+          <span class="stat-value" id="avgTokens">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Tokens Used Today</span>
+          <span class="stat-value" id="tokensUsedToday">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Pending Transactions</span>
+          <span class="stat-value" id="pendingTransactions">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Collections Overview -->
+    <div class="card">
+      <h3>📚 Collections</h3>
+      <div class="collection-grid" id="collectionsGrid">
+        <p style="color: #888;">Loading collections...</p>
+      </div>
+    </div>
+
+    <!-- Activity Logs -->
+    <div class="logs-container scrollbar-custom" id="logsContainer">
+      <h3>🔍 Real-Time Activity Logs</h3>
+      <div id="activityLogs">
+        <div class="log-entry">
+          <span class="log-time">--:--:--</span>
+          <span class="log-action">Initializing monitoring...</span>
+          <span class="log-count">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity Stream -->
+    <div class="activity-stream">
+      <h3>⚡ Live Activity Stream</h3>
+      <div id="activityStream">
+        <p style="color: #888; text-align: center;">Waiting for activity...</p>
+      </div>
+    </div>
+
+    <!-- Database Size Chart -->
+    <div class="chart-container">
+      <h3>📈 Collections Size Comparison</h3>
+      <div class="bar-chart" id="sizeChart">
+        <p style="color: #888;">Loading chart...</p>
+      </div>
+      <div class="refresh-time">
+        Last refresh: <span id="chartRefreshTime">--:--:--</span>
+      </div>
+    </div>
+
+    <!-- Security Bot System -->
+    <div class="card warning">
+      <h3>🤖 NEX-DEFENSE BOT - Threat Detection</h3>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <span style="color: #00d4ff; font-weight: 600;">Bot Status:</span>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button id="botToggle" class="btn" style="background: #00ff66; padding: 8px 20px; font-size: 14px;">🟢 BOT ON</button>
+          <span id="botStatusText" style="color: #00ff66; font-weight: 600;">Active</span>
+        </div>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Threat Level</span>
+        <span class="stat-value" id="threatLevel" style="color: #00ff66;">SAFE</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Detected Threats</span>
+        <span class="stat-value" id="threatCount" style="color: #ff9600;">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Suspicious Activities</span>
+        <span class="stat-value" id="suspiciousCount" style="color: #ff9600;">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Blocked Accounts</span>
+        <span class="stat-value" id="blockedAccounts" style="color: #ff6666;">0</span>
+      </div>
+    </div>
+
+    <!-- Security Alerts -->
+    <div class="logs-container scrollbar-custom" id="securityAlerts" style="border-color: #ff6666; background: linear-gradient(135deg, rgba(255, 102, 102, 0.05) 0%, rgba(255, 150, 0, 0.05) 100%);">
+      <h3 style="color: #ff6666;">⚠️ Security Alerts & Threat Log</h3>
+      <div id="alertsList">
+        <div class="log-entry" style="border-left-color: #00ff66;">
+          <span class="log-time">--:--:--</span>
+          <span class="log-action">Security bot online - monitoring active</span>
+          <span class="log-count" style="background: rgba(0, 255, 102, 0.2); color: #00ff66;">SAFE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Threat Analysis -->
+    <div class="grid-2">
+      <div class="card warning">
+        <h3>📊 Threat Analysis</h3>
+        <div class="stat-item">
+          <span class="stat-label">Spam Detection</span>
+          <span class="stat-value" id="spamScore">0%</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Hacking Attempts</span>
+          <span class="stat-value" id="hackScore">0%</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Penetration Risk</span>
+          <span class="stat-value" id="penScore">0%</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Overall Risk</span>
+          <span class="stat-value" id="riskScore">0%</span>
+        </div>
+      </div>
+
+      <div class="card error">
+        <h3>🚨 Suspicious Activities</h3>
+        <div id="suspiciousList" style="color: #ddd; max-height: 200px; overflow-y: auto;">
+          <p style="color: #888;">No suspicious activities detected</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Connection Status -->
+    <div class="card success">
+      <h3>✅ System Status</h3>
+      <div class="stat-item">
+        <span class="stat-label">Firebase Connection</span>
+        <span class="stat-value" id="fbConnection" style="color: #00ff66;">Connected</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Real-Time Listeners</span>
+        <span class="stat-value" id="listenerStatus" style="color: #00ff66;">Active</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Data Sync</span>
+        <span class="stat-value" id="syncStatus" style="color: #00ff66;">Synchronized</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Monitor Uptime</span>
+        <span class="stat-value" id="uptime" style="color: #00ff66;">00:00:00</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase Scripts -->
+  <script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { 
+      collection, getDocs, onSnapshot, query, where, orderBy, limit,
+      collectionGroup
+    } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    let startTime = Date.now();
+    let logCount = 0;
+    const maxLogs = 100;
+    const activityItems = [];
+    const maxActivityItems = 50;
+
+    // Security Bot Data
+    const securityBot = {
+      threats: [],
+      blockedAccounts: new Set(),
+      suspiciousActivity: [],
+      messageFrequency: {},
+      accountCreationRate: [],
+      queryFrequency: {},
+      threatScore: 0,
+      spamScore: 0,
+      hackScore: 0,
+      penetrationScore: 0,
+      isEnabled: true  // Bot on/off status
+    };
+
+    // Threat Detection Thresholds
+    const THRESHOLDS = {
+      messagesPerMinute: 20,
+      accountsPerHour: 50,
+      failedLogins: 5,
+      uniqueIPsPerUser: 10,
+      querySpike: 500,
+      bulkOperations: 100,
+      suspiciousPatterns: 3
+    };
+
+    // Security Bot - Threat Detection System
+    function detectThreats() {
+      // Skip threat detection if bot is disabled
+      if (!securityBot.isEnabled) return;
+
+      // Spam Detection
+      const messageCount = parseInt(document.getElementById('totalMessages').textContent) || 0;
+      const userCount = parseInt(document.getElementById('userCount').textContent) || 1;
+      const messagesPerUser = messageCount / userCount;
+      
+      if (messagesPerUser > THRESHOLDS.messagesPerMinute) {
+        securityBot.spamScore = Math.min(100, (messagesPerUser / THRESHOLDS.messagesPerMinute) * 100);
+        addSecurityAlert('🚨 Potential Spam Detected', 'HIGH', `${messagesPerUser.toFixed(2)} messages per user exceeds threshold`);
+      } else {
+        securityBot.spamScore = Math.max(0, securityBot.spamScore - 5);
+      }
+
+      // Hacking Detection - Unusual account activity
+      const accountCreationToday = securityBot.accountCreationRate.filter(time => isToday(new Date(time))).length;
+      if (accountCreationToday > THRESHOLDS.accountsPerHour) {
+        securityBot.hackScore = Math.min(100, (accountCreationToday / THRESHOLDS.accountsPerHour) * 100);
+        addSecurityAlert('⚠️ Suspicious Account Creation Rate', 'HIGH', `${accountCreationToday} accounts created today`);
+      } else {
+        securityBot.hackScore = Math.max(0, securityBot.hackScore - 5);
+      }
+
+      // Penetration Detection - Unusual query patterns
+      const reportCount = parseInt(document.getElementById('reportCount').textContent) || 0;
+      if (reportCount > THRESHOLDS.bulkOperations) {
+        securityBot.penetrationScore = Math.min(100, (reportCount / THRESHOLDS.bulkOperations) * 100);
+        addSecurityAlert('🛡️ Potential Penetration Attempt', 'MEDIUM', `Unusual query pattern detected - ${reportCount} reports`);
+      } else {
+        securityBot.penetrationScore = Math.max(0, securityBot.penetrationScore - 5);
+      }
+
+      // Calculate overall threat level
+      securityBot.threatScore = (securityBot.spamScore + securityBot.hackScore + securityBot.penetrationScore) / 3;
+
+      updateSecurityDisplay();
+    }
+
+    // Toggle Security Bot On/Off
+    function toggleSecurityBot() {
+      securityBot.isEnabled = !securityBot.isEnabled;
+      const botToggle = document.getElementById('botToggle');
+      const botStatus = document.getElementById('botStatusText');
+
+      if (securityBot.isEnabled) {
+        botToggle.textContent = '🟢 BOT ON';
+        botToggle.style.background = '#00ff66';
+        botToggle.style.color = '#000';
+        botStatus.textContent = 'Active';
+        botStatus.style.color = '#00ff66';
+        addLog('🤖 Security Bot Enabled', 'security');
+        addSecurityAlert('🤖 Security Bot Enabled', 'LOW', 'Threat monitoring active');
+        detectThreats();
+      } else {
+        botToggle.textContent = '🔴 BOT OFF';
+        botToggle.style.background = '#ff6666';
+        botToggle.style.color = '#fff';
+        botStatus.textContent = 'Disabled';
+        botStatus.style.color = '#ff6666';
+        addLog('🤖 Security Bot Disabled', 'security');
+        addSecurityAlert('🤖 Security Bot Disabled', 'MEDIUM', 'Threat monitoring paused');
+        
+        // Reset scores when bot is turned off
+        securityBot.threatScore = 0;
+        securityBot.spamScore = 0;
+        securityBot.hackScore = 0;
+        securityBot.penetrationScore = 0;
+        updateSecurityDisplay();
+      }
+
+      // Save preference to localStorage
+      localStorage.setItem('securityBotEnabled', securityBot.isEnabled);
+    }
+
+    // Add Security Alert
+    function addSecurityAlert(message, severity = 'LOW', details = '') {
+      const alertsList = document.getElementById('alertsList');
+      const time = new Date().toLocaleTimeString();
+      
+      let color = '#00ff66';
+      let bgColor = 'rgba(0, 255, 102, 0.05)';
+      let borderColor = '#00ff66';
+      
+      if (severity === 'CRITICAL') {
+        color = '#ff6666';
+        bgColor = 'rgba(255, 102, 102, 0.1)';
+        borderColor = '#ff6666';
+      } else if (severity === 'HIGH') {
+        color = '#ff9600';
+        bgColor = 'rgba(255, 150, 0, 0.1)';
+        borderColor = '#ff9600';
+      } else if (severity === 'MEDIUM') {
+        color = '#ffff00';
+        bgColor = 'rgba(255, 255, 0, 0.05)';
+        borderColor = '#ffff00';
+      }
+
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.style.borderLeftColor = borderColor;
+      entry.style.background = bgColor;
+      entry.innerHTML = `
+        <span class="log-time">${time}</span>
+        <span class="log-action">${message}${details ? ' - ' + details : ''}</span>
+        <span class="log-count" style="background: ${bgColor}; color: ${color};">${severity}</span>
+      `;
+      
+      alertsList.insertBefore(entry, alertsList.firstChild);
+      
+      while (alertsList.children.length > maxLogs) {
+        alertsList.removeChild(alertsList.lastChild);
+      }
+
+      // Track suspicious activity
+      if (severity !== 'LOW') {
+        securityBot.suspiciousActivity.push({
+          message,
+          severity,
+          time: new Date(),
+          details
+        });
+
+        if (securityBot.suspiciousActivity.length > 20) {
+          securityBot.suspiciousActivity.shift();
+        }
+
+        updateSuspiciousList();
+      }
+    }
+
+    // Update Suspicious Activities List
+    function updateSuspiciousList() {
+      const list = document.getElementById('suspiciousList');
+      
+      if (securityBot.suspiciousActivity.length === 0) {
+        list.innerHTML = '<p style="color: #888;">No suspicious activities detected</p>';
+        return;
+      }
+
+      list.innerHTML = securityBot.suspiciousActivity.map(activity => `
+        <div style="padding: 8px; margin: 5px 0; background: rgba(255, 150, 0, 0.1); border-left: 3px solid #ff9600; border-radius: 4px;">
+          <div style="color: #ff9600; font-weight: 600;">${activity.message}</div>
+          <div style="color: #ddd; font-size: 12px; margin-top: 4px;">${activity.details}</div>
+          <div style="color: #00d4ff; font-size: 11px; margin-top: 4px;">${activity.time.toLocaleTimeString()}</div>
+        </div>
+      `).join('');
+    }
+
+    // Update Security Display
+    function updateSecurityDisplay() {
+      document.getElementById('spamScore').textContent = Math.round(securityBot.spamScore) + '%';
+      document.getElementById('hackScore').textContent = Math.round(securityBot.hackScore) + '%';
+      document.getElementById('penScore').textContent = Math.round(securityBot.penetrationScore) + '%';
+      document.getElementById('riskScore').textContent = Math.round(securityBot.threatScore) + '%';
+      document.getElementById('threatCount').textContent = securityBot.threats.length;
+      document.getElementById('suspiciousCount').textContent = securityBot.suspiciousActivity.length;
+      document.getElementById('blockedAccounts').textContent = securityBot.blockedAccounts.size;
+
+      // Update threat level
+      let threatLevel = '✅ SAFE';
+      let threatColor = '#00ff66';
+
+      if (securityBot.threatScore >= 75) {
+        threatLevel = '🚨 CRITICAL';
+        threatColor = '#ff6666';
+      } else if (securityBot.threatScore >= 50) {
+        threatLevel = '⚠️ HIGH';
+        threatColor = '#ff9600';
+      } else if (securityBot.threatScore >= 25) {
+        threatLevel = '⚡ MEDIUM';
+        threatColor = '#ffff00';
+      } else if (securityBot.threatScore > 0) {
+        threatLevel = '🟡 LOW';
+        threatColor = '#ffff00';
+      }
+
+      const threatLevelEl = document.getElementById('threatLevel');
+      threatLevelEl.textContent = threatLevel;
+      threatLevelEl.style.color = threatColor;
+    }
+
+    // Initialize monitoring
+    function initializeMonitoring() {
+      console.log('🔥 Firestore Monitoring Started');
+      
+      // Load bot preference from localStorage
+      const savedBotState = localStorage.getItem('securityBotEnabled');
+      if (savedBotState === 'false') {
+        securityBot.isEnabled = false;
+        document.getElementById('botToggle').textContent = '🔴 BOT OFF';
+        document.getElementById('botToggle').style.background = '#ff6666';
+        document.getElementById('botToggle').style.color = '#fff';
+        document.getElementById('botStatusText').textContent = 'Disabled';
+        document.getElementById('botStatusText').style.color = '#ff6666';
+      }
+
+      // Setup bot toggle button
+      document.getElementById('botToggle').addEventListener('click', toggleSecurityBot);
+
+      addLog('System initialized', 'info');
+      setupRealTimeListeners();
+      updateUptime();
+      setInterval(updateUptime, 1000);
+      setInterval(updateChartData, 5000);
+    }
+
+    // Add log entry
+    function addLog(message, type = 'info') {
+      const logsContainer = document.getElementById('activityLogs');
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `
+        <span class="log-time">${time}</span>
+        <span class="log-action">${message}</span>
+        <span class="log-count">${++logCount}</span>
+      `;
+      
+      logsContainer.insertBefore(entry, logsContainer.firstChild);
+      
+      // Keep only last 100 logs
+      while (logsContainer.children.length > maxLogs) {
+        logsContainer.removeChild(logsContainer.lastChild);
+      }
+    }
+
+    // Add activity item
+    function addActivity(text) {
+      const activityStream = document.getElementById('activityStream');
+      const time = new Date().toLocaleTimeString();
+      
+      if (activityStream.children[0]?.textContent.includes('Waiting')) {
+        activityStream.innerHTML = '';
+      }
+
+      const item = document.createElement('div');
+      item.className = 'activity-item';
+      item.innerHTML = `
+        <span class="activity-text">⚡ ${text}</span>
+        <span class="activity-time">${time}</span>
+      `;
+      
+      activityStream.insertBefore(item, activityStream.firstChild);
+      
+      // Keep only last 50 items
+      while (activityStream.children.length > maxActivityItems) {
+        activityStream.removeChild(activityStream.lastChild);
+      }
+    }
+
+    // Setup real-time listeners
+    function setupRealTimeListeners() {
+      // Users count
+      onSnapshot(collection(db, 'users'), (snapshot) => {
+        document.getElementById('userCount').textContent = snapshot.size;
+        addLog(`👥 Users: ${snapshot.size} documents`, 'users');
+        updateTotalDocuments();
+        
+        // Detect rapid account creation
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.createdAt) {
+            securityBot.accountCreationRate.push(data.createdAt.toDate?.() || new Date(data.createdAt));
+          }
+          // Check for suspicious account activity
+          if (data.failedLoginAttempts > THRESHOLDS.failedLogins) {
+            addSecurityAlert(`🔓 Multiple Failed Login Attempts`, 'HIGH', `User ${data.email} - ${data.failedLoginAttempts} attempts`);
+            securityBot.blockedAccounts.add(doc.id);
+          }
+        });
+        
+        // Count gmail users
+        let gmailCount = 0;
+        let premiumCount = 0;
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.email && data.email.includes('@gmail.com')) gmailCount++;
+          if (data.premium === true) premiumCount++;
+        });
+        document.getElementById('gmailCount').textContent = gmailCount;
+        document.getElementById('premiumCount').textContent = premiumCount;
+        
+        detectThreats();
+      });
+
+      // Direct messages count
+      onSnapshot(collection(db, 'messages'), (snapshot) => {
+        document.getElementById('messageCount').textContent = snapshot.size;
+        const todayMsgs = snapshot.docs.filter(doc => {
+          const timestamp = doc.data().timestamp?.toDate?.() || new Date(doc.data().timestamp);
+          return isToday(timestamp);
+        }).length;
+        document.getElementById('todayMessages').textContent = todayMsgs;
+        addLog(`💬 Direct Messages: ${snapshot.size} documents`, 'messages');
+        
+        // Detect spam patterns
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const from = data.from;
+          securityBot.messageFrequency[from] = (securityBot.messageFrequency[from] || 0) + 1;
+          
+          // Check for repetitive/spam messages
+          if (data.text && (data.text.length < 5 || data.text.includes('http'))) {
+            securityBot.spamScore += 2;
+          }
+        });
+        
+        // Alert if spam detected
+        if (securityBot.messageFrequency[Object.keys(securityBot.messageFrequency)[0]] > THRESHOLDS.messagesPerMinute) {
+          addSecurityAlert('📨 Spam Message Detected', 'MEDIUM', 'Repetitive messaging pattern identified');
+        }
+        
+        updateTotalMessages();
+        updateTotalDocuments();
+        detectThreats();
+      });
+
+      // Group messages count
+      onSnapshot(collection(db, 'groupMessages'), (snapshot) => {
+        document.getElementById('groupMessageCount').textContent = snapshot.size;
+        addLog(`👥💬 Group Messages: ${snapshot.size} documents`, 'messages');
+        updateTotalMessages();
+        updateTotalDocuments();
+      });
+
+      // Groups count
+      onSnapshot(collection(db, 'groups'), (snapshot) => {
+        document.getElementById('groupCount').textContent = snapshot.size;
+        let totalMembers = 0;
+        snapshot.forEach(doc => {
+          totalMembers += (doc.data().members?.length || 0);
+        });
+        document.getElementById('totalMembers').textContent = totalMembers;
+        addLog(`👥 Groups: ${snapshot.size} documents, ${totalMembers} members`, 'groups');
+        addActivity(`New group snapshot: ${snapshot.size} groups`);
+        updateTotalDocuments();
+      });
+
+      // Polls count
+      onSnapshot(collection(db, 'groupPolls'), (snapshot) => {
+        document.getElementById('pollCount').textContent = snapshot.size;
+        addLog(`📊 Polls: ${snapshot.size} documents`, 'polls');
+        updateTotalDocuments();
+      });
+
+      // Videos count
+      onSnapshot(collection(db, 'videos'), (snapshot) => {
+        document.getElementById('videoCount').textContent = snapshot.size;
+        addLog(`🎬 Videos: ${snapshot.size} documents`, 'videos');
+        updateTotalDocuments();
+      });
+
+      // Reports count - detect hacking attempts
+      onSnapshot(collection(db, 'reports'), (snapshot) => {
+        document.getElementById('reportCount').textContent = snapshot.size;
+        addLog(`📋 Reports: ${snapshot.size} documents`, 'reports');
+        
+        // Detect penetration attempts (unusual report patterns)
+        let reportsToday = 0;
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const reportDate = data.createdAt?.toDate?.() || new Date(data.createdAt);
+          if (isToday(reportDate)) {
+            reportsToday++;
+          }
+          
+          // Detect bulk operation attempts
+          if (data.reason && data.reason.includes('abuse')) {
+            securityBot.penetrationScore += 5;
+          }
+        });
+        
+        if (reportsToday > 20) {
+          addSecurityAlert('🛡️ Potential Penetration Detected', 'HIGH', `${reportsToday} reports filed today - unusual pattern`);
+        }
+        
+        updateTotalDocuments();
+        detectThreats();
+      });
+
+      // Blocked users
+      onSnapshot(query(collection(db, 'users'), where('blockedUsers', '!=', [])), (snapshot) => {
+        document.getElementById('blockedCount').textContent = snapshot.size;
+        addLog(`🚫 Blocked Users: ${snapshot.size} documents`, 'blocked');
+        
+        // Monitor for unusual blocking patterns
+        let totalBlocked = 0;
+        snapshot.forEach(doc => {
+          totalBlocked += (doc.data().blockedUsers?.length || 0);
+        });
+        
+        if (totalBlocked > 100) {
+          addSecurityAlert('🔒 Unusual Blocking Pattern', 'MEDIUM', `${totalBlocked} users blocked - possible attack`);
+        }
+        
+        detectThreats();
+      });
+
+      // Group messages - detect coordinated attacks
+      onSnapshot(collection(db, 'groupMessages'), (snapshot) => {
+        document.getElementById('groupMessageCount').textContent = snapshot.size;
+        addLog(`👥💬 Group Messages: ${snapshot.size} documents`, 'messages');
+        
+        // Detect spam in groups
+        const groupSpamMap = {};
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const groupId = data.groupId;
+          groupSpamMap[groupId] = (groupSpamMap[groupId] || 0) + 1;
+        });
+        
+        // Alert if one group has too many messages
+        Object.entries(groupSpamMap).forEach(([groupId, count]) => {
+          if (count > THRESHOLDS.messagesPerMinute * 5) {
+            addSecurityAlert('💣 Group Spam Detected', 'HIGH', `Group ${groupId.substring(0, 10)}... has ${count} messages`);
+          }
+        });
+        
+        updateTotalMessages();
+        updateTotalDocuments();
+        detectThreats();
+      });
+
+      // Polls - detect abuse
+      onSnapshot(collection(db, 'groupPolls'), (snapshot) => {
+        document.getElementById('pollCount').textContent = snapshot.size;
+        addLog(`📊 Polls: ${snapshot.size} documents`, 'polls');
+        
+        // Detect rapid poll creation (potential manipulation)
+        let pollsToday = 0;
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const pollDate = data.timestamp?.toDate?.() || new Date(data.timestamp);
+          if (isToday(pollDate)) {
+            pollsToday++;
+          }
+        });
+        
+        if (pollsToday > 50) {
+          addSecurityAlert('📊 Poll Manipulation Detected', 'MEDIUM', `${pollsToday} polls created today`);
+        }
+        
+        updateTotalDocuments();
+        detectThreats();
+      });
+
+      // Videos - detect malicious uploads
+      onSnapshot(collection(db, 'videos'), (snapshot) => {
+        document.getElementById('videoCount').textContent = snapshot.size;
+        addLog(`🎬 Videos: ${snapshot.size} documents`, 'videos');
+        
+        // Check for suspicious video metadata
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.title && (data.title.includes('hack') || data.title.includes('phishing'))) {
+            addSecurityAlert('🎬 Suspicious Video Upload', 'HIGH', `Potential malicious content: ${data.title}`);
+          }
+        });
+        
+        updateTotalDocuments();
+        detectThreats();
+      });
+
+      // Groups - detect coordinated activity
+      onSnapshot(collection(db, 'groups'), (snapshot) => {
+        document.getElementById('groupCount').textContent = snapshot.size;
+        let totalMembers = 0;
+        snapshot.forEach(doc => {
+          totalMembers += (doc.data().members?.length || 0);
+        });
+        document.getElementById('totalMembers').textContent = totalMembers;
+        addLog(`👥 Groups: ${snapshot.size} documents, ${totalMembers} members`, 'groups');
+        addActivity(`New group snapshot: ${snapshot.size} groups`);
+        updateTotalDocuments();
+        detectThreats();
+      });
+
+      updateLastUpdate();
+      setInterval(updateLastUpdate, 1000);
+      setInterval(detectThreats, 5000); // Run threat detection every 5 seconds
+      
+      console.log('🤖 Security Bot Online - Monitoring for threats');
+      addLog('🤖 AI Security Bot initialized', 'security');
+    }
+
+    function isToday(date) {
+      const today = new Date();
+      return date?.toDateString?.() === today.toDateString();
+    }
+
+    function updateTotalDocuments() {
+      const users = parseInt(document.getElementById('userCount').textContent) || 0;
+      const msgs = parseInt(document.getElementById('messageCount').textContent) || 0;
+      const groupMsgs = parseInt(document.getElementById('groupMessageCount').textContent) || 0;
+      const groups = parseInt(document.getElementById('groupCount').textContent) || 0;
+      const polls = parseInt(document.getElementById('pollCount').textContent) || 0;
+      const videos = parseInt(document.getElementById('videoCount').textContent) || 0;
+      const reports = parseInt(document.getElementById('reportCount').textContent) || 0;
+      
+      document.getElementById('totalDocuments').textContent = users + msgs + groupMsgs + groups + polls + videos + reports;
+      document.getElementById('totalCollections').textContent = '7';
+      document.getElementById('activeListeners').textContent = '8';
+    }
+
+    function updateTotalMessages() {
+      const msgs = parseInt(document.getElementById('messageCount').textContent) || 0;
+      const groupMsgs = parseInt(document.getElementById('groupMessageCount').textContent) || 0;
+      document.getElementById('totalMessages').textContent = msgs + groupMsgs;
+    }
+
+    function updateLastUpdate() {
+      const time = new Date().toLocaleTimeString();
+      document.getElementById('lastUpdate').textContent = time;
+    }
+
+    function updateUptime() {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const hours = Math.floor(elapsed / 3600);
+      const minutes = Math.floor((elapsed % 3600) / 60);
+      const seconds = elapsed % 60;
+      const uptime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      document.getElementById('uptime').textContent = uptime;
+    }
+
+    async function updateChartData() {
+      try {
+        const collections = [
+          { name: 'Users', ref: collection(db, 'users') },
+          { name: 'Messages', ref: collection(db, 'messages') },
+          { name: 'Groups', ref: collection(db, 'groups') },
+          { name: 'Videos', ref: collection(db, 'videos') },
+          { name: 'Reports', ref: collection(db, 'reports') },
+          { name: 'Polls', ref: collection(db, 'groupPolls') }
+        ];
+
+        const chartContainer = document.getElementById('sizeChart');
+        chartContainer.innerHTML = '';
+
+        const maxSize = Math.max(...(await Promise.all(
+          collections.map(c => getDocs(c.ref).then(s => s.size))
+        )));
+
+        for (let i = 0; i < collections.length; i++) {
+          const { name, ref } = collections[i];
+          const size = await getDocs(ref).then(s => s.size);
+          const percentage = (size / (maxSize || 1)) * 100;
+
+          const bar = document.createElement('div');
+          bar.className = 'bar';
+          bar.style.height = Math.max(percentage, 5) + '%';
+          bar.innerHTML = `
+            <div class="bar-value">${size}</div>
+            <div class="bar-label">${name}</div>
+          `;
+          chartContainer.appendChild(bar);
+        }
+
+        document.getElementById('chartRefreshTime').textContent = new Date().toLocaleTimeString();
+      } catch (error) {
+        console.error('Chart error:', error);
+      }
+    }
+
+    // Start monitoring when page loads
+    window.addEventListener('load', initializeMonitoring);
+  </script>
+</body>
+</html>
