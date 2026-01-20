@@ -230,7 +230,21 @@ function setupEventListeners() {
     createAdminBtn.addEventListener('click', createNewAdmin);
   }
 
-  // Modal close buttons
+  // Modal close buttons (with error handling)
+  document.querySelectorAll('.close-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      try {
+        const modal = e.target.closest('.modal');
+        if (modal) {
+          modal.style.display = 'none';
+          console.log('✅ Modal closed');
+        }
+      } catch (error) {
+        console.error('Error closing modal:', error);
+      }
+    });
+  });
+  console.log('✅ Close button listeners attached');
   document.querySelectorAll('.close-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const modal = e.target.closest('.modal');
@@ -615,6 +629,8 @@ function setupTabNavigation() {
         if (tabName === 'analytics') initAnalytics();
         if (tabName === 'tokens') initTokenMinting();
         if (tabName === 'groupchats') loadGroupChats();
+        if (tabName === 'messages') loadMessages();
+        if (tabName === 'videos') loadVideos();
       } catch (error) {
         console.error(`Error loading tab ${tabName}:`, error);
       }
@@ -1505,6 +1521,9 @@ window.handleReport = handleReport;
 window.deactivateAdmin = deactivateAdmin;
 window.activateAdmin = activateAdmin;
 window.deleteAdmin = deleteAdmin;
+window.viewGroupDetails = viewGroupDetails;
+window.viewGroupMembers = viewGroupMembers;
+window.deleteGroupChat = deleteGroupChat;
 
 // ============================================================
 // NEX-REELS VIDEO MANAGEMENT
@@ -1724,7 +1743,7 @@ function filterVideos(filterType) {
 // ============================================================
 
 let allVideoReports = [];
-let selectedReportId = null;
+let selectedVideoReportId = null;
 let selectedReportData = null;
 
 // Load video reports from Firestore
@@ -1801,7 +1820,7 @@ function displayVideoReports(reports) {
 
 // Open video report details modal
 async function openVideoReportModal(reportId) {
-  selectedReportId = reportId;
+  selectedVideoReportId = reportId;
   selectedReportData = allVideoReports.find(r => r.id === reportId);
   
   if (!selectedReportData) return;
@@ -1830,10 +1849,10 @@ async function openVideoReportModal(reportId) {
 
 // Mark report as reviewed
 async function markReportReviewed() {
-  if (!selectedReportId) return;
+  if (!selectedVideoReportId) return;
   
   try {
-    await updateDoc(doc(db, 'reports', selectedReportId), {
+    await updateDoc(doc(db, 'reports', selectedVideoReportId), {
       status: 'reviewed'
     });
     
@@ -1855,7 +1874,7 @@ async function deleteReportedVideo() {
   try {
     await deleteDoc(doc(db, 'videos', selectedReportData.videoId));
     
-    await updateDoc(doc(db, 'reports', selectedReportId), {
+    await updateDoc(doc(db, 'reports', selectedVideoReportId), {
       status: 'resolved',
       resolvedAt: serverTimestamp(),
       actionTaken: 'video_deleted'
@@ -1900,7 +1919,7 @@ async function banCreatorFromReport() {
     });
     
     // Mark report as resolved
-    await updateDoc(doc(db, 'reports', selectedReportId), {
+    await updateDoc(doc(db, 'reports', selectedVideoReportId), {
       status: 'resolved',
       resolvedAt: serverTimestamp(),
       actionTaken: 'creator_banned'
@@ -1917,10 +1936,10 @@ async function banCreatorFromReport() {
 
 // Dismiss report (mark as resolved but no action taken)
 async function dismissReport() {
-  if (!selectedReportId) return;
+  if (!selectedVideoReportId) return;
   
   try {
-    await updateDoc(doc(db, 'reports', selectedReportId), {
+    await updateDoc(doc(db, 'reports', selectedVideoReportId), {
       status: 'resolved',
       resolvedAt: serverTimestamp(),
       actionTaken: 'dismissed'
@@ -1979,6 +1998,53 @@ window.flagVideo = flagVideo;
 window.deleteVideo = deleteVideo;
 window.banVideoCreator = banVideoCreator;
 window.filterVideos = filterVideos;
+window.viewGroupDetails = viewGroupDetails;
+window.viewGroupMembers = viewGroupMembers;
+window.deleteGroupChat = deleteGroupChat;
+window.loadMessages = loadMessages;
+window.loadVideoAnalytics = loadVideoAnalytics;
+window.loadAdminPostReels = loadAdminPostReels;
+window.loadWatchReels = loadWatchReels;
+window.initPostReels = initPostReels;
+
+// ========================================
+// MISSING UTILITY FUNCTIONS
+// ========================================
+async function loadMessages() {
+  const container = document.getElementById('messagesContainer');
+  if (!container) {
+    console.log('Messages container not found');
+    return;
+  }
+  
+  try {
+    const messagesSnap = await getDocs(collection(db, 'messages'));
+    const totalMessages = messagesSnap.size;
+    
+    document.getElementById('avgMessages').textContent = Math.round(totalMessages / 30);
+    console.log('✅ Messages loaded:', totalMessages);
+  } catch (error) {
+    console.error('Error loading messages:', error);
+  }
+}
+
+async function loadVideoAnalytics() {
+  try {
+    console.log('📊 Loading video analytics...');
+    await loadVideos();
+  } catch (error) {
+    console.error('Error loading video analytics:', error);
+  }
+}
+
+async function loadAdminPostReels() {
+  try {
+    console.log('🎬 Loading admin post reels...');
+    initPostReels();
+  } catch (error) {
+    console.error('Error loading admin post reels:', error);
+  }
+}
 
 // ========================================
 // WATCH REELS FUNCTIONS
@@ -2632,78 +2698,6 @@ window.dismissReport = dismissReport;
 window.loadVideoReports = loadVideoReports;
 
 // ============================================================
-// TAB NAVIGATION SETUP
-// ============================================================
-
-function setupTabNavigation() {
-  const navBtns = document.querySelectorAll('.nav-btn');
-  const tabContents = document.querySelectorAll('.tab-content');
-  
-  navBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      // Skip if it's a link (firestore status or button tester)
-      if (btn.tagName === 'A') {
-        return;
-      }
-      
-      e.preventDefault();
-      const tabName = btn.getAttribute('data-tab');
-      
-      if (!tabName) return;
-      
-      console.log(`🔄 Switching to tab: ${tabName}`);
-      
-      // Remove active class from all buttons and contents
-      navBtns.forEach(b => b.classList.remove('active'));
-      tabContents.forEach(content => content.classList.remove('active'));
-      
-      // Add active class to clicked button
-      btn.classList.add('active');
-      
-      // Show the corresponding tab content
-      const activeTab = document.getElementById(tabName);
-      if (activeTab) {
-        activeTab.classList.add('active');
-        
-        // Load data based on tab
-        if (tabName === 'users') {
-          loadUsers();
-        } else if (tabName === 'analytics') {
-          initAnalytics();
-        } else if (tabName === 'messages') {
-          loadMessages();
-        } else if (tabName === 'reports') {
-          loadReports();
-        } else if (tabName === 'blocked') {
-          loadBlockedUsers();
-        } else if (tabName === 'admins') {
-          loadAdmins();
-        } else if (tabName === 'tokens') {
-          loadTokenStatistics();
-          loadTransactionHistory();
-        } else if (tabName === 'videos') {
-          loadVideoAnalytics();
-        } else if (tabName === 'watchReels') {
-          loadAdminReels();
-        } else if (tabName === 'postReels') {
-          loadAdminPostReels();
-        } else if (tabName === 'gmail') {
-          loadGmailUsers();
-        } else if (tabName === 'groupchats') {
-          loadGroupChats();
-        }
-        
-        console.log(`✅ Tab switched to: ${tabName}`);
-      } else {
-        console.warn(`⚠️ Tab content not found for: ${tabName}`);
-      }
-    });
-  });
-  
-  console.log(`✅ Tab navigation initialized for ${navBtns.length} buttons`);
-}
-
-// ============================================================
 // BUTTON EVENT LISTENERS INITIALIZATION
 // ============================================================
 
@@ -2928,6 +2922,125 @@ document.addEventListener('DOMContentLoaded', function() {
   // Load initial data
   loadOverviewStats();
   console.log('✅ Overview stats loaded');
+
+  // Video management buttons
+  const flagVideoBtn = document.getElementById('flagVideoBtn');
+  if (flagVideoBtn) {
+    flagVideoBtn.addEventListener('click', () => {
+      console.log('✅ Flag Video button clicked');
+      flagVideo();
+    });
+    console.log('✅ flagVideoBtn listener attached');
+  }
+
+  const deleteVideoBtn = document.getElementById('deleteVideoBtn');
+  if (deleteVideoBtn) {
+    deleteVideoBtn.addEventListener('click', () => {
+      console.log('✅ Delete Video button clicked');
+      deleteVideo();
+    });
+    console.log('✅ deleteVideoBtn listener attached');
+  }
+
+  const banVideoCreatorBtn = document.getElementById('banVideoCreatorBtn');
+  if (banVideoCreatorBtn) {
+    banVideoCreatorBtn.addEventListener('click', () => {
+      console.log('✅ Ban Video Creator button clicked');
+      banVideoCreator();
+    });
+    console.log('✅ banVideoCreatorBtn listener attached');
+  }
+
+  const viewVideoBtn = document.getElementById('viewVideoBtn');
+  if (viewVideoBtn) {
+    viewVideoBtn.addEventListener('click', () => {
+      console.log('✅ View Video button clicked');
+      if (selectedVideoData?.videoUrl) {
+        window.open(selectedVideoData.videoUrl, '_blank');
+      } else {
+        showNotification('❌ Video URL not available', 'error');
+      }
+    });
+    console.log('✅ viewVideoBtn listener attached');
+  }
+
+  // Reels buttons
+  const refreshReelsBtn = document.getElementById('refreshReelsBtn');
+  if (refreshReelsBtn) {
+    refreshReelsBtn.addEventListener('click', () => {
+      console.log('✅ Refresh Reels button clicked');
+      loadWatchReels();
+    });
+    console.log('✅ refreshReelsBtn listener attached');
+  }
+
+  const refreshVideosBtn = document.getElementById('refreshVideosBtn');
+  if (refreshVideosBtn) {
+    refreshVideosBtn.addEventListener('click', () => {
+      console.log('✅ Refresh Videos button clicked');
+      loadVideos();
+    });
+    console.log('✅ refreshVideosBtn listener attached');
+  }
+
+  // Filter buttons
+  const videoFilter = document.getElementById('videoFilter');
+  if (videoFilter) {
+    videoFilter.addEventListener('change', (e) => {
+      console.log('✅ Video filter changed to:', e.target.value);
+      filterVideos(e.target.value);
+    });
+    console.log('✅ videoFilter listener attached');
+  }
+
+  const reelsFilter = document.getElementById('reelsFilter');
+  if (reelsFilter) {
+    reelsFilter.addEventListener('change', (e) => {
+      console.log('✅ Reels filter changed to:', e.target.value);
+      loadWatchReels(); // Reload with new filter
+    });
+    console.log('✅ reelsFilter listener attached');
+  }
+
+  // Bot toggle button
+  const botToggle = document.getElementById('botToggle');
+  if (botToggle) {
+    botToggle.addEventListener('click', () => {
+      console.log('✅ Bot Toggle button clicked');
+      const botStatus = document.getElementById('botStatus');
+      if (botStatus) {
+        const statusSpan = botStatus.querySelector('span');
+        if (statusSpan) {
+          statusSpan.textContent = statusSpan.textContent === 'Active' ? 'Inactive' : 'Active';
+          showNotification('✅ Bot status toggled', 'success');
+        }
+      }
+    });
+    console.log('✅ botToggle listener attached');
+  }
+
+  // Settings buttons with proper delegation
+  const settingBtns = document.querySelectorAll('.setting-btn');
+  settingBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const btnId = btn.id;
+      const btnText = btn.textContent.trim();
+      
+      console.log('⚙️ Settings button clicked:', btnId, '-', btnText);
+      
+      // Skip if it's a specific action button (handled elsewhere)
+      if (btnId.includes('Mint') || btnId.includes('Send') || btnId.includes('Clear') || 
+          btnId.includes('Generate') || btnId.includes('Copy') || btnId.includes('Create') ||
+          btnId.includes('Lookup') || btnId.includes('Token') || btnId.includes('Toggle')) {
+        console.log('Delegating to specific handler:', btnId);
+        return;
+      }
+      
+      // Handle generic settings buttons
+      handleSettingsActions(e);
+    });
+  });
+  console.log('✅ All settings buttons setup complete');
 
   console.log('✨ Admin Dashboard fully initialized!');
 });
