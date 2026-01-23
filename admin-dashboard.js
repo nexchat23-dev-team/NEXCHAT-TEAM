@@ -15,20 +15,53 @@ console.log('Admin dashboard script loaded');
 function checkAdminAuth() {
   const adminToken = localStorage.getItem('adminToken');
   const adminEmail = localStorage.getItem('adminEmail');
+  const adminRole = localStorage.getItem('adminRole');
   const tokenTimestamp = localStorage.getItem('tokenTimestamp');
+  const lastActivityTime = localStorage.getItem('lastActivityTime');
   
-  if (tokenTimestamp && Date.now() - parseInt(tokenTimestamp) > 24 * 60 * 60 * 1000) {
+  // Session timeout: 24 hours
+  const SESSION_TIMEOUT = 24 * 60 * 60 * 1000;
+  // Inactivity timeout: 30 minutes
+  const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
+  
+  // Check if token exists
+  if (!adminToken || !adminEmail || !adminRole) {
+    console.warn('❌ Missing admin credentials');
+    return false;
+  }
+  
+  // Check if session has expired (24 hours)
+  if (tokenTimestamp && Date.now() - parseInt(tokenTimestamp) > SESSION_TIMEOUT) {
+    console.warn('❌ Session expired (token timeout)');
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminEmail');
+    localStorage.removeItem('adminRole');
     localStorage.removeItem('tokenTimestamp');
-    window.location.href = 'index.html';
+    localStorage.removeItem('lastActivityTime');
+    localStorage.removeItem('adminLoginSuccess');
+    window.location.href = 'index.html?reason=session_expired';
     return false;
   }
   
-  if (!adminToken || !adminEmail) {
-    window.location.href = 'index.html';
+  // Check for inactivity (30 minutes)
+  if (lastActivityTime && Date.now() - parseInt(lastActivityTime) > INACTIVITY_TIMEOUT) {
+    console.warn('❌ Session expired (inactivity timeout)');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminEmail');
+    localStorage.removeItem('adminRole');
+    localStorage.removeItem('tokenTimestamp');
+    localStorage.removeItem('lastActivityTime');
+    localStorage.removeItem('adminLoginSuccess');
+    window.location.href = 'index.html?reason=inactivity_timeout';
     return false;
   }
+  
+  // Update last activity time
+  localStorage.setItem('lastActivityTime', Date.now().toString());
+  
+  console.log('✅ Admin authenticated');
+  console.log(`📊 Admin Email: ${adminEmail}`);
+  console.log(`🔐 Admin Role: ${adminRole}`);
   
   return true;
 }
@@ -98,6 +131,67 @@ function generateRandomPassword(length = 12) {
   return password;
 }
 
+// Check if admin has required permission
+function checkPermission(requiredPermission) {
+  const adminRole = localStorage.getItem('adminRole') || 'admin';
+  
+  // Super admin has all permissions
+  if (adminRole === 'super-admin') {
+    return true;
+  }
+  
+  const rolePermissions = {
+    'admin': [
+      'manage_users', 'manage_reports', 'manage_admins', 'view_logs',
+      'manage_tokens', 'manage_messages', 'manage_videos', 
+      'manage_announcements', 'view_analytics'
+    ],
+    'moderator': [
+      'manage_users', 'manage_reports', 'view_logs', 'manage_messages'
+    ],
+    'analyst': [
+      'view_logs', 'view_analytics'
+    ]
+  };
+  
+  const permissions = rolePermissions[adminRole] || [];
+  return permissions.includes(requiredPermission);
+}
+
+// Enforce permission requirement
+function requirePermission(permission) {
+  if (!checkPermission(permission)) {
+    const error = new Error(`Insufficient Permission: ${permission} required`);
+    error.code = 'INSUFFICIENT_PERMISSION';
+    console.error(`🚫 ${error.message}`);
+    showNotification(`❌ Insufficient Permission: ${permission}`, 'error');
+    throw error;
+  }
+  return true;
+}
+
+// Log admin action for audit trail
+async function logAdminAction(action, details = '') {
+  try {
+    const adminEmail = localStorage.getItem('adminEmail');
+    const adminRole = localStorage.getItem('adminRole');
+    
+    await addDoc(collection(db, 'adminAuditLog'), {
+      action: action,
+      adminEmail: adminEmail,
+      adminRole: adminRole,
+      details: details,
+      timestamp: serverTimestamp(),
+      userAgent: navigator.userAgent.substring(0, 200),
+      screenResolution: `${window.screen.width}x${window.screen.height}`
+    });
+    
+    console.log(`✅ Action logged: ${action}`);
+  } catch (error) {
+    console.warn('Could not log action to Firestore:', error);
+  }
+}
+
 // Initialize dashboard on DOM ready
 function initializeDashboard() {
   console.log('Dashboard initialization starting');
@@ -106,19 +200,32 @@ function initializeDashboard() {
   
   try {
     if (!checkAdminAuth()) {
-      console.error('Admin auth check failed');
+      console.error('❌ Admin auth check failed - Insufficient Permission');
+      showNotification('❌ Insufficient Permission: Admin authentication required', 'error');
+      setTimeout(() => {
+        window.location.href = 'index.html?reason=auth_failed';
+      }, 2000);
       return;
     }
     
-    console.log('Admin authenticated, initializing dashboard');
-    currentAdminName = localStorage.getItem('adminEmail') || 'Admin';
+    const adminEmail = localStorage.getItem('adminEmail');
+    const adminRole = localStorage.getItem('adminRole');
+    
+    console.log('✅ Admin authenticated');
+    console.log(`📧 Email: ${adminEmail}`);
+    console.log(`🔐 Role: ${adminRole}`);
+    
+    currentAdminName = adminEmail || 'Admin';
     const adminNameEl = document.getElementById('adminName');
     if (adminNameEl) {
-      adminNameEl.textContent = `${currentAdminName} (Admin)`;
+      adminNameEl.textContent = `${currentAdminName} (${adminRole})`;
       console.log('✅ Admin name set to:', adminNameEl.textContent);
     } else {
       console.warn('⚠️ adminName element not found');
     }
+    
+    // Log dashboard access
+    logAdminAction('DASHBOARD_ACCESS', `Admin role: ${adminRole}`);
     
     loadOverviewStats();
     console.log('✅ Overview stats loaded');
@@ -132,6 +239,12 @@ function initializeDashboard() {
     loadUsers();
     console.log('✅ Users loaded');
     
+    // Display role information
+    console.log('=== Admin Role & Permissions ===');
+    console.log(`Role: ${adminRole}`);
+    console.log(`✅ All permissions enabled for role: ${adminRole}`);
+    console.log('================================');
+    
     // Verify key buttons exist
     console.log('=== Button Verification ===');
     console.log('mintTokensBtn:', document.getElementById('mintTokensBtn') ? '✅ Found' : '❌ Not found');
@@ -139,10 +252,20 @@ function initializeDashboard() {
     console.log('sendTokensBtn:', document.getElementById('sendTokensBtn') ? '✅ Found' : '❌ Not found');
     console.log('createAdminBtn:', document.getElementById('createAdminBtn') ? '✅ Found' : '❌ Not found');
     console.log('logoutBtn:', document.getElementById('logoutBtn') ? '✅ Found' : '❌ Not found');
+    console.log('========================');
+    
   } catch (error) {
     console.error('Fatal error during dashboard initialization:', error);
     console.error('Error stack:', error.stack);
-    showNotification(`Error initializing dashboard: ${error.message}`, 'error');
+    showNotification(`❌ Error initializing dashboard: ${error.message}`, 'error');
+    
+    // Attempt logout on error
+    setTimeout(() => {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminEmail');
+      localStorage.removeItem('adminRole');
+      window.location.href = 'index.html?reason=init_error';
+    }, 3000);
   }
 }
 
@@ -157,6 +280,43 @@ window.addEventListener('load', () => {
     initializeDashboard();
   }
 });
+
+// ===== ACTIVITY TRACKING & SESSION MANAGEMENT =====
+
+// Update activity timestamp on user interaction
+document.addEventListener('mousemove', () => {
+  localStorage.setItem('lastActivityTime', Date.now().toString());
+}, { passive: true });
+
+document.addEventListener('keydown', () => {
+  localStorage.setItem('lastActivityTime', Date.now().toString());
+});
+
+document.addEventListener('click', () => {
+  localStorage.setItem('lastActivityTime', Date.now().toString());
+}, { passive: true });
+
+// Periodic session validity check (every 5 minutes)
+setInterval(() => {
+  try {
+    if (!checkAdminAuth()) {
+      console.warn('⚠️ Session validation failed - Insufficient Permission');
+      showNotification('❌ Session expired. Please login again.', 'error');
+      
+      // Clear session data
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminEmail');
+      localStorage.removeItem('adminRole');
+      localStorage.removeItem('adminLoginSuccess');
+      
+      setTimeout(() => {
+        window.location.href = 'index.html?reason=session_expired';
+      }, 2000);
+    }
+  } catch (error) {
+    console.error('Session check error:', error);
+  }
+}, 5 * 60 * 1000);
 
 function setupEventListeners() {
   // Back to NEXCHAT
@@ -2006,6 +2166,235 @@ window.loadVideoAnalytics = loadVideoAnalytics;
 window.loadAdminPostReels = loadAdminPostReels;
 window.loadWatchReels = loadWatchReels;
 window.initPostReels = initPostReels;
+window.publishAnnouncement = publishAnnouncement;
+window.loadAdminAnnouncements = loadAdminAnnouncements;
+window.deleteAdminAnnouncement = deleteAdminAnnouncement;
+
+// ========================================
+// ANNOUNCEMENTS FUNCTIONS
+// ========================================
+async function publishAnnouncement() {
+  const title = document.getElementById('announcementTitle')?.value?.trim();
+  const content = document.getElementById('announcementContent')?.value?.trim();
+  const priority = document.getElementById('announcementPriority')?.value || 'normal';
+  const pin = document.getElementById('announcementPin')?.checked || false;
+  const statusDiv = document.getElementById('announcementStatus');
+  const publishBtn = document.getElementById('publishAnnouncementBtn');
+  
+  // Validate inputs
+  if (!title || title.length === 0) {
+    showNotification('❌ Please enter an announcement title', 'error');
+    return;
+  }
+  
+  if (!content || content.length === 0) {
+    showNotification('❌ Please enter announcement content', 'error');
+    return;
+  }
+  
+  if (title.length > 100) {
+    showNotification('❌ Title must be 100 characters or less', 'error');
+    return;
+  }
+  
+  if (content.length > 1000) {
+    showNotification('❌ Content must be 1000 characters or less', 'error');
+    return;
+  }
+  
+  try {
+    publishBtn.disabled = true;
+    publishBtn.textContent = '⏳ Publishing...';
+    
+    if (statusDiv) {
+      statusDiv.style.display = 'block';
+      statusDiv.textContent = '⏳ Publishing announcement...';
+      statusDiv.style.background = 'rgba(0, 150, 200, 0.3)';
+      statusDiv.style.color = '#00d4ff';
+    }
+    
+    // Get current admin info
+    const adminEmail = localStorage.getItem('adminEmail') || 'admin@nexchat.com';
+    const adminName = currentAdminName || 'Administrator';
+    
+    // Create announcement document
+    const announcementData = {
+      title: sanitizeInput(title),
+      content: sanitizeInput(content),
+      priority: priority,
+      pinned: pin,
+      createdBy: adminEmail,
+      createdByName: adminName,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      views: 0,
+      likes: 0
+    };
+    
+    // Add to Firestore
+    const docRef = await addDoc(collection(db, 'announcements'), announcementData);
+    
+    // Clear form
+    document.getElementById('announcementTitle').value = '';
+    document.getElementById('announcementContent').value = '';
+    document.getElementById('announcementContent').dispatchEvent(new Event('input'));
+    document.getElementById('announcementPriority').value = 'normal';
+    document.getElementById('announcementPin').checked = false;
+    
+    // Show success message
+    if (statusDiv) {
+      statusDiv.style.display = 'block';
+      statusDiv.textContent = '✅ Announcement published successfully! ID: ' + docRef.id;
+      statusDiv.style.background = 'rgba(76, 175, 80, 0.3)';
+      statusDiv.style.color = '#4caf50';
+    }
+    
+    showNotification('✅ Announcement published successfully!', 'success');
+    
+    // Reload announcements list
+    setTimeout(() => {
+      loadAdminAnnouncements();
+      if (statusDiv) statusDiv.style.display = 'none';
+    }, 2000);
+    
+    console.log('✅ Announcement published:', docRef.id);
+    
+  } catch (error) {
+    console.error('❌ Error publishing announcement:', error);
+    if (statusDiv) {
+      statusDiv.style.display = 'block';
+      statusDiv.textContent = '❌ Error: ' + error.message;
+      statusDiv.style.background = 'rgba(244, 67, 54, 0.3)';
+      statusDiv.style.color = '#ff6666';
+    }
+    showNotification('❌ Error publishing announcement: ' + error.message, 'error');
+  } finally {
+    publishBtn.disabled = false;
+    publishBtn.textContent = '📢 Publish Announcement';
+  }
+}
+
+async function loadAdminAnnouncements() {
+  const container = document.getElementById('announcementsAdminList');
+  
+  if (!container) {
+    console.log('Announcements admin list container not found');
+    return;
+  }
+  
+  try {
+    container.innerHTML = '<div class="loading-message">⏳ Loading announcements...</div>';
+    
+    // Query announcements from Firestore
+    const q = query(
+      collection(db, 'announcements'),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      container.innerHTML = '<div class="loading-message">📭 No announcements yet. Create one above!</div>';
+      return;
+    }
+    
+    let html = '';
+    
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const timestamp = data.createdAt?.toDate ? new Date(data.createdAt.toDate()) : new Date(data.createdAt);
+      
+      // Format time
+      const now = new Date();
+      const diff = now - timestamp;
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+      
+      let timeStr;
+      if (minutes < 1) {
+        timeStr = 'just now';
+      } else if (minutes < 60) {
+        timeStr = `${minutes}m ago`;
+      } else if (hours < 24) {
+        timeStr = `${hours}h ago`;
+      } else {
+        timeStr = `${days}d ago`;
+      }
+      
+      const priorityColor = {
+        'normal': '#00ff66',
+        'important': '#ffaa00',
+        'urgent': '#ff6666'
+      }[data.priority] || '#00ff66';
+      
+      const priorityLabel = {
+        'normal': '📌 Normal',
+        'important': '⚠️ Important',
+        'urgent': '🚨 Urgent'
+      }[data.priority] || '📌 Normal';
+      
+      html += `
+        <div class="admin-announcement-item" style="border: 1px solid ${priorityColor}; padding: 15px; margin-bottom: 15px; border-radius: 8px; background: rgba(0, 0, 0, 0.3);">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+            <div>
+              <h3 style="margin: 0 0 5px 0; color: ${priorityColor};">📢 ${sanitizeInput(data.title)}</h3>
+              <div style="font-size: 12px; color: #888;">
+                <span>${priorityLabel}</span> • 
+                <span>${data.createdByName || data.createdBy}</span> • 
+                <span>${timeStr}</span>
+              </div>
+            </div>
+            <button onclick="deleteAdminAnnouncement('${doc.id}')" style="background: #ff6666; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">🗑️ Delete</button>
+          </div>
+          <p style="margin: 10px 0 0 0; color: #ccc; line-height: 1.5;">${sanitizeInput(data.content).substring(0, 200)}${data.content.length > 200 ? '...' : ''}</p>
+          <div style="margin-top: 10px; font-size: 12px; color: #888;">
+            👁️ ${data.views || 0} views • 💬 ${data.likes || 0} reactions ${data.pinned ? '• 📌 Pinned' : ''}
+          </div>
+        </div>
+      `;
+    });
+    
+    container.innerHTML = html;
+    console.log('✅ Admin announcements loaded:', snapshot.size);
+    
+  } catch (error) {
+    console.error('❌ Error loading announcements:', error);
+    container.innerHTML = `<div class="loading-message" style="color: #ff6666;">❌ Error loading announcements: ${error.message}</div>`;
+  }
+}
+
+async function deleteAdminAnnouncement(announcementId) {
+  if (!confirm('Are you sure you want to delete this announcement? This action cannot be undone.')) {
+    return;
+  }
+  
+  try {
+    await deleteDoc(doc(db, 'announcements', announcementId));
+    showNotification('✅ Announcement deleted successfully', 'success');
+    loadAdminAnnouncements();
+    console.log('✅ Announcement deleted:', announcementId);
+  } catch (error) {
+    console.error('❌ Error deleting announcement:', error);
+    showNotification('❌ Error deleting announcement: ' + error.message, 'error');
+  }
+}
+
+// Make functions globally accessible
+window.openVideoModal = openVideoModal;
+window.flagVideo = flagVideo;
+window.deleteVideo = deleteVideo;
+window.banVideoCreator = banVideoCreator;
+window.filterVideos = filterVideos;
+window.viewGroupDetails = viewGroupDetails;
+window.viewGroupMembers = viewGroupMembers;
+window.deleteGroupChat = deleteGroupChat;
+window.loadMessages = loadMessages;
+window.loadVideoAnalytics = loadVideoAnalytics;
+window.loadAdminPostReels = loadAdminPostReels;
+window.loadWatchReels = loadWatchReels;
+window.initPostReels = initPostReels;
 
 // ========================================
 // MISSING UTILITY FUNCTIONS
@@ -3041,6 +3430,34 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
   console.log('✅ All settings buttons setup complete');
+
+  // Announcements functionality
+  const publishAnnouncementBtn = document.getElementById('publishAnnouncementBtn');
+  const announcementContent = document.getElementById('announcementContent');
+  const charCount = document.getElementById('charCount');
+  
+  if (announcementContent) {
+    announcementContent.addEventListener('input', (e) => {
+      const count = e.target.value.length;
+      if (charCount) {
+        charCount.textContent = `${count}/1000 characters`;
+        charCount.style.color = count > 900 ? '#ff6666' : '#888';
+      }
+    });
+  }
+  
+  if (publishAnnouncementBtn) {
+    publishAnnouncementBtn.addEventListener('click', publishAnnouncement);
+  }
+  
+  // Load announcements when tab is clicked
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      if (this.getAttribute('data-tab') === 'announcements') {
+        setTimeout(loadAdminAnnouncements, 100);
+      }
+    });
+  });
 
   console.log('✨ Admin Dashboard fully initialized!');
 });

@@ -318,11 +318,21 @@
         resultDiv.textContent = '✅ Login successful! Redirecting to dashboard...';
         resultDiv.className = 'success';
 
-        // Set admin session
-        localStorage.setItem('adminToken', 'token_' + Math.random().toString(36).substr(2));
+        // Generate secure admin token
+        const secureToken = 'token_' + Math.random().toString(36).substr(2) + '_' + Date.now();
+        const sessionExpiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+
+        // Set admin session with enhanced security
+        localStorage.setItem('adminToken', secureToken);
         localStorage.setItem('adminEmail', 'demonalexander526@gmail.com');
-        localStorage.setItem('tokenTimestamp', Date.now());
+        localStorage.setItem('adminRole', 'super-admin'); // Super admin access
+        localStorage.setItem('tokenTimestamp', Date.now().toString());
         localStorage.setItem('lastLoginTime', new Date().toISOString());
+        localStorage.setItem('lastActivityTime', Date.now().toString());
+        localStorage.setItem('sessionExpiresAt', sessionExpiresAt.toString());
+        localStorage.setItem('adminLoginSuccess', 'true');
+
+        logSecurityEvent('LOGIN_SUCCESS', clientIP, `Admin logged in: super-admin role assigned`);
 
         setTimeout(() => {
           window.location.href = 'admin-dashboard.html';

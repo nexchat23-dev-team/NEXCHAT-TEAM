@@ -37,6 +37,7 @@
     <button class="nav-btn" data-tab="blocked">🚫 Blocked Users</button>
     <button class="nav-btn" data-tab="admins">👑 Manage Admins</button>
     <button class="nav-btn" data-tab="groupchats">👥 Group Chats</button>
+    <button class="nav-btn" data-tab="announcements">📢 Announcements</button>
     <button class="nav-btn" data-tab="tokens">💰 Token Minting</button>
     <button class="nav-btn" data-tab="settings">⚙️ Settings</button>
     <a href="firestore_status.html" class="nav-btn" style="text-decoration: none; display: inline-block; background: linear-gradient(135deg, #ff9600, #ff6666); border: 2px solid #ff9600;">🔥 Firestore Status</a>
@@ -388,6 +389,52 @@
       <h2>Blocked Users</h2>
       <div class="blocked-users-container" id="blockedUsersContainer">
         <div class="loading-message">Loading blocked users...</div>
+      </div>
+    </section>
+
+    <!-- ANNOUNCEMENTS TAB -->
+    <section id="announcements" class="tab-content">
+      <h2>📢 Post Announcements</h2>
+      <p style="color: #00ff66; margin-bottom: 20px;">Create and manage announcements that will be displayed to all users in the chat app.</p>
+      
+      <div class="announcements-admin-container">
+        <div class="announcement-form">
+          <div class="form-group">
+            <label>Announcement Title</label>
+            <input type="text" id="announcementTitle" placeholder="Enter announcement title..." maxlength="100">
+          </div>
+
+          <div class="form-group">
+            <label>Announcement Content</label>
+            <textarea id="announcementContent" placeholder="Write your announcement message..." maxlength="1000" rows="6"></textarea>
+            <small style="color: #888;" id="charCount">0/1000 characters</small>
+          </div>
+
+          <div class="form-group">
+            <label>Priority Level</label>
+            <select id="announcementPriority" style="padding: 10px; border-radius: 6px; border: 1px solid #00ff66; background: #0a0a0a; color: #00ff66; font-size: 14px;">
+              <option value="normal">Normal</option>
+              <option value="important">Important</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="announcementPin"> 📌 Pin this announcement (visible at top)
+            </label>
+          </div>
+
+          <button id="publishAnnouncementBtn" class="publish-btn" style="background: linear-gradient(135deg, #00ff66, #00d4ff); color: #000; padding: 12px 24px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 15px; font-size: 16px;">📢 Publish Announcement</button>
+          <div id="announcementStatus" style="margin-top: 15px; padding: 10px; border-radius: 6px; display: none; text-align: center;"></div>
+        </div>
+      </div>
+
+      <div style="margin-top: 40px;">
+        <h3 style="color: #00ff66; margin-bottom: 15px;">📋 Active Announcements</h3>
+        <div class="announcements-admin-list" id="announcementsAdminList">
+          <div class="loading-message">Loading announcements...</div>
+        </div>
       </div>
     </section>
 

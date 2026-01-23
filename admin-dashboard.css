@@ -1488,3 +1488,221 @@ body {
   font-weight: bold;
   margin-top: 5px;
 }
+
+/* ========================================
+   ANNOUNCEMENTS ADMIN STYLES
+   ======================================== */
+
+.announcements-admin-container {
+  max-width: 600px;
+  margin: 0 0 30px 0;
+  padding: 20px;
+  border: 2px solid #00ff66;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(0, 255, 102, 0.05) 0%, rgba(0, 212, 255, 0.05) 100%);
+  box-shadow: 0 0 15px rgba(0, 255, 102, 0.1);
+}
+
+.announcement-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.announcement-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.announcement-form label {
+  color: #00ff66;
+  font-weight: bold;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.announcement-form input[type="text"],
+.announcement-form textarea,
+.announcement-form select {
+  padding: 12px;
+  background: #0a0a0a;
+  border: 2px solid #00ff66;
+  color: #fff;
+  border-radius: 6px;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.announcement-form input[type="text"]:focus,
+.announcement-form textarea:focus,
+.announcement-form select:focus {
+  outline: none;
+  border-color: #00d4ff;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+  background: #111;
+}
+
+.announcement-form textarea {
+  resize: vertical;
+  min-height: 120px;
+  max-height: 300px;
+  line-height: 1.5;
+}
+
+.announcement-form small {
+  font-size: 0.85rem;
+  color: #888;
+  margin-top: -5px;
+}
+
+.announcement-form input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #00ff66;
+}
+
+.publish-btn {
+  background: linear-gradient(135deg, #00ff66 0%, #00d4ff 100%);
+  color: #000;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.publish-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(0, 255, 102, 0.3);
+}
+
+.publish-btn:active {
+  transform: translateY(0);
+}
+
+.publish-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+#announcementStatus {
+  padding: 12px;
+  border-radius: 6px;
+  text-align: center;
+  font-weight: bold;
+  border-left: 4px solid #00ff66;
+  animation: slideInDown 0.3s ease;
+}
+
+/* Announcements List */
+.announcements-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.announcements-admin-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.announcements-admin-list::-webkit-scrollbar-track {
+  background: rgba(0, 255, 102, 0.1);
+  border-radius: 10px;
+}
+
+.announcements-admin-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #00ff66, #00d4ff);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.announcements-admin-list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #00d4ff, #00ff66);
+}
+
+.admin-announcement-item {
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.admin-announcement-item:hover {
+  transform: translateX(5px);
+  box-shadow: 0 5px 15px rgba(0, 255, 102, 0.2);
+}
+
+.admin-announcement-item h3 {
+  word-break: break-word;
+  max-width: 80%;
+}
+
+.admin-announcement-item p {
+  word-break: break-word;
+  max-height: 100px;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+
+.admin-announcement-item button {
+  transition: all 0.3s ease;
+}
+
+.admin-announcement-item button:hover {
+  background: #ff4444 !important;
+  transform: scale(1.05);
+}
+
+.loading-message {
+  padding: 20px;
+  text-align: center;
+  color: #888;
+  font-style: italic;
+  border: 1px dashed rgba(0, 255, 102, 0.3);
+  border-radius: 8px;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+}
+
